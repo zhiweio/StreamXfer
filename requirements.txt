@@ -1,0 +1,5 @@
+sqlalchemy
+pymssql
+boto3
+loguru
+click
