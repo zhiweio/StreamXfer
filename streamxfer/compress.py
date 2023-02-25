@@ -1,10 +1,9 @@
-from streamxfer.cmd import GZIP, LZOP
 from streamxfer.format import MB
 
 COMPRESS_LEVEL = 6
 COMPRESS_THRESHOLD = 50 * MB
 
-supported = [LZOP.name, GZIP.name]
+supported = ["LZOP", "GZIP"]
 
 
 def enabled(size: int) -> bool:

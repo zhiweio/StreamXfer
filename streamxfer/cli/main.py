@@ -9,33 +9,44 @@ from streamxfer.format import Format
 
 
 @click.command()
-@click.argument("url")
+@click.argument("pymssql-url")
 @click.argument("table")
-@click.argument("path")
+@click.argument("output-path")
 @click.option(
     "-F",
     "--format",
     default=Format.CSV,
-    choices=format.supported,
-    case_sensitive=False,
+    type=click.Choice(format.supported, case_sensitive=False),
     show_default=True,
 )
 @click.option(
     "--compress-type",
     default=Compress.lzop.name,
-    choices=compress.supported,
-    case_sensitive=False,
+    type=click.Choice(compress.supported, case_sensitive=False),
     show_default=True,
 )
-def cli(url, table, path, format, compress_type):
+@click.option("--no-compress", "disable_compress", is_flag=True)
+def cli(pymssql_url, table, output_path, format, compress_type, disable_compress):
+    """StreamXfer is a powerful tool for streaming data from SQL Server to object storage for seamless transfer
+    using UNIX pipe, supporting various general data formats(CSV, TSV, JSON).
+
+    \b
+    Examples:
+        stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /local/path/to/dir/
+        stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir/
+
+    """
     sx = StreamXfer(
-        url, format.upper(), enable_compress=True, compress_type=compress_type.upper()
+        pymssql_url,
+        format.upper(),
+        enable_compress=not disable_compress,
+        compress_type=compress_type.upper(),
     )
-    if path.startswith("s3://"):
+    if output_path.startswith("s3://"):
         sink = S3Sink
     else:
         sink = LocalSink
-    sx.build(table, path, sink)
+    sx.build(table, output_path, sink)
     sx.pump()
 
 

@@ -10,9 +10,6 @@ from streamxfer.compress import supported, COMPRESS_LEVEL
 from streamxfer.format import Format, sc
 from streamxfer.utils import quote_this
 
-__module__ = ["S3Sink"]
-__all__ = ["S3Sink"]
-
 
 class Cat:
     name = "cat"
