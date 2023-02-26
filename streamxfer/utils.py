@@ -2,6 +2,8 @@ import os
 import shlex
 import sys
 import tempfile
+import time
+
 from streamxfer.typing import *
 
 IS_WIN32 = sys.platform == "win32"
@@ -15,7 +17,17 @@ def mkfifo(tmpf):
 
 def mktempfifo(suffix=""):
     d = tempfile.mkdtemp()
-    return os.path.join(d, "fifo") + suffix
+    fifo = os.path.join(d, "fifo") + suffix
+    os.mkfifo(fifo)
+    return fifo
+
+
+def wait_until_created(filename, retry=30):
+    while retry > 0:
+        if os.path.exists(filename):
+            return
+        time.sleep(0.1)
+        retry -= 1
 
 
 def quote_this(this: str) -> str:

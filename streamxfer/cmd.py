@@ -19,8 +19,6 @@ class Cat:
     def cmd(cls, file=None, shell=True) -> Union[List[str], str]:
         _cmd = [cls.bin]
         if file is not None:
-            if not os.path.exists(file):
-                raise FileNotFoundError(f"cat failed: {file!r}")
             _cmd.append(quote_this(file))
         if shell:
             return " ".join(_cmd)
