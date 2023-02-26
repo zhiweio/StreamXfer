@@ -80,12 +80,21 @@ sx = StreamXfer(
     enable_compress=True,
     compress_type="LZOP",
 )
-sx.build("[dbo].[test]", "s3://bucket/path/to/dir/", sink=S3Sink)
+sx.build("[dbo].[test]", "s3://bucket/path/to/dir/", sink=S3Sink())
 sx.pump()
 
 ```
+
+## Related
+
+Here are some related articles
+
+* [How to stream Microsoft SQL Server to S3 using BCP on linux](https://dstan.medium.com/streaming-microsoft-sql-server-to-s3-using-bcp-35241967d2e0)
 
 ## Authors
 
 - [@zhiweio](https://www.github.com/zhiweio)
 
+## License
+
+[GPL-3.0](https://choosealicense.com/licenses/gpl-3.0/)
