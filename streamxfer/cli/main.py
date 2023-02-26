@@ -43,9 +43,9 @@ def cli(pymssql_url, table, output_path, format, compress_type, disable_compress
         compress_type=compress_type.upper(),
     )
     if output_path.startswith("s3://"):
-        sink = S3Sink
+        sink = S3Sink()
     else:
-        sink = LocalSink
+        sink = LocalSink()
     sx.build(table, output_path, sink)
     sx.pump()
 
