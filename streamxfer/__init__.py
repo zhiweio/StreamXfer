@@ -57,12 +57,12 @@ class StreamXfer:
         sink,
         redshift_escape=False,
     ):
+        compress = Compress(self.compress_type)
         file_ext = "." + self.format.lower()
         if self.enable_compress:
-            file_ext = file_ext + "." + self.compress_type.lower()
+            file_ext = file_ext + compress.ext()
         self._fifo = mktempfifo(suffix=file_ext)
         uri = os.path.join(path, "$FILE" + file_ext)
-        compress = Compress(self.compress_type)
 
         if self.format == Format.CSV:
             ft = ms.csv_in_ft

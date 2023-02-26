@@ -61,6 +61,9 @@ class Compress:
     def cmd(self, level=COMPRESS_LEVEL, shell=True) -> Union[List[str], str]:
         return getattr(self, self.type.lower()).cmd(level, shell)
 
+    def ext(self):
+        return getattr(self, self.type.lower()).ext
+
 
 class MssqlCsvEscape:
     name = "stx-mssql-csv-escape"
