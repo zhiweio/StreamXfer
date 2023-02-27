@@ -70,17 +70,3 @@ def read_stream(stream, newline=sa.LN):
             buf = buf[pos + len(newline) :]
     if buf:
         yield buf.decode("utf-8")
-
-
-if __name__ == "__main__":
-    import io
-    import timeit
-
-    def test_read_stream():
-        stream = io.BytesIO(b"abc\x003def\x003ghi\x003jkl")
-        for line in read_stream(stream):
-            pass
-
-    n = 1000000000
-    t = timeit.timeit(test_read_stream, number=n)
-    print(f"执行 {n} 次的平均时间为: {t / n:.6f} 秒")
