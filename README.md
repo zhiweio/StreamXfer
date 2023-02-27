@@ -44,7 +44,7 @@ You can also use the following options:
 For more information on the options, run stx --help.
 
 ```shell
-$ stx --help             
+$ stx --help
 Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
 
   StreamXfer is a powerful tool for streaming data from SQL Server to object
@@ -56,9 +56,10 @@ Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
       stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir/
 
 Options:
-  -F, --format [CSV|TSV|JSON]  [default: CSV]
+  -F, --format [CSV|TSV|JSON]  [default: TSV]
   --compress-type [LZOP|GZIP]  [default: LZOP]
   --no-compress
+  --redshift-escape
   --help                       Show this message and exit.
 
 
@@ -76,7 +77,7 @@ from streamxfer.cmd import S3Sink
 
 sx = StreamXfer(
     "mssql+pymssql:://user:pass@host:port/db",
-    format="CSV",
+    format="TSV",
     enable_compress=True,
     compress_type="LZOP",
 )

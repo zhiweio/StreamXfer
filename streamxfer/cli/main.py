@@ -15,7 +15,7 @@ from streamxfer.format import Format
 @click.option(
     "-F",
     "--format",
-    default=Format.CSV,
+    default=Format.TSV,
     type=click.Choice(format.supported, case_sensitive=False),
     show_default=True,
 )
