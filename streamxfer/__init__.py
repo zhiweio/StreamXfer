@@ -118,7 +118,7 @@ class StreamXfer:
         LOG.debug(f"Command pipe: {self.pipe}")
         with Popen(self.bcp, shell=True) as bcp_proc:
             p = psutil.Process(bcp_proc.pid)
-            LOG.info(
+            LOG.debug(
                 f"BCP process started, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
                 f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
             )
@@ -128,17 +128,17 @@ class StreamXfer:
 
             with Popen(self.pipe, shell=True) as pipe_proc:
                 p = psutil.Process(pipe_proc.pid)
-                LOG.info(
+                LOG.debug(
                     f"pipe built, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
                     f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
                 )
                 pipe_proc.wait()
 
-            LOG.info(f"pipe exited: {pipe_proc.returncode}")
+            LOG.debug(f"pipe exited: {pipe_proc.returncode}")
             if pipe_proc.returncode != 0:
                 raise RuntimeError(f"pipe stream process failed")
 
         bcp_proc.wait()
-        LOG.info(f"BCP exited: {bcp_proc.returncode}")
+        LOG.debug(f"BCP exited: {bcp_proc.returncode}")
         if bcp_proc.returncode != 0:
             raise RuntimeError(f"BCP download failed")
