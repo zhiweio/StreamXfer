@@ -4,6 +4,11 @@ StreamXfer is a powerful tool for streaming data from SQL Server to object stora
 pipe, supporting various general data formats(CSV, TSV, JSON).
 
 
+## Demo
+
+[![asciicast](https://asciinema.org/a/563200.svg)](https://asciinema.org/a/563200)
+
+
 ## Installation
 
 Before installing StreamXfer, you need to install the following dependencies:
