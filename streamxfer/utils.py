@@ -7,6 +7,7 @@ import time
 from streamxfer.typing import *
 
 IS_WIN32 = sys.platform == "win32"
+IS_MACOS = sys.platform == "darwin"
 
 
 def mkfifo(tmpf):

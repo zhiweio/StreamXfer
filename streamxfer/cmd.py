@@ -1,4 +1,3 @@
-import os
 import textwrap
 from typing import Union, List, Dict
 
@@ -8,12 +7,12 @@ from sqlalchemy import create_engine, make_url
 from streamxfer import mssql as ms
 from streamxfer.compress import supported, COMPRESS_LEVEL
 from streamxfer.format import Format, sc
-from streamxfer.utils import quote_this
+from streamxfer.utils import quote_this, IS_MACOS
 
 
 class Cat:
     name = "cat"
-    bin = "cat"
+    bin = "gcat" if IS_MACOS else "cat"
 
     @classmethod
     def cmd(cls, file=None, shell=True) -> Union[List[str], str]:
@@ -85,7 +84,7 @@ class RedshiftEscape:
 
 class Split:
     name = "split"
-    bin = "split"
+    bin = "gsplit" if IS_MACOS else "split"
 
     @classmethod
     def cmd(cls, filter: str, lines=1000000, shell=True) -> Union[List[str], str]:
@@ -193,7 +192,7 @@ def _concat_columns(columns: List[Dict[str, str]], json_string_escape=False) -> 
 
 
 class LocalSink:
-    bin = "cat"
+    bin = Cat.bin
 
     def cmd(self, uri) -> Union[List[str], str]:
         _cmd = [self.bin, ">", uri]
