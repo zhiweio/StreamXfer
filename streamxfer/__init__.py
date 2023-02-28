@@ -116,29 +116,26 @@ class StreamXfer:
 
         LOG.debug(f"Command BCP: {self.bcp}")
         LOG.debug(f"Command pipe: {self.pipe}")
-        with Popen(self.bcp, shell=True) as bcp_proc:
-            p = psutil.Process(bcp_proc.pid)
-            LOG.debug(
-                f"BCP process started, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
-                f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
-            )
-            wait_until_created(self._fifo, retry=15)
-            if not os.path.exists(self._fifo):
-                raise RuntimeError(f"BCP failed to create fifo: {self._fifo}")
 
-            with Popen(self.pipe, shell=True) as pipe_proc:
-                p = psutil.Process(pipe_proc.pid)
-                LOG.debug(
-                    f"pipe built, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
-                    f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
-                )
-                pipe_proc.wait()
+        bcp_proc = Popen(self.bcp, shell=True)
+        p = psutil.Process(bcp_proc.pid)
+        LOG.debug(
+            f"BCP process started, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
+            f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
+        )
+        wait_until_created(self._fifo, retry=15)
+        if not os.path.exists(self._fifo):
+            raise RuntimeError(f"BCP failed to create fifo: {self._fifo}")
 
-            LOG.debug(f"pipe exited: {pipe_proc.returncode}")
-            if pipe_proc.returncode != 0:
-                raise RuntimeError(f"pipe stream process failed")
+        pipe_proc = Popen(self.pipe, shell=True)
+        pp = psutil.Process(pipe_proc.pid)
+        LOG.debug(
+            f"pipe built, name: {pp.name()}\tpid: {pp.pid}\tppid: {pp.ppid()}\t"
+            f"exe: {pp.exe()}\tcmdline: {pp.cmdline()}"
+        )
 
-        bcp_proc.wait()
-        LOG.debug(f"BCP exited: {bcp_proc.returncode}")
-        if bcp_proc.returncode != 0:
+        returncode = bcp_proc.wait()
+        LOG.debug(f"BCP exited: {returncode}")
+        if returncode != 0:
+            pp.kill()
             raise RuntimeError(f"BCP download failed")
