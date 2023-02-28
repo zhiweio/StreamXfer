@@ -181,9 +181,11 @@ def _build_bcp_query(table, format: str, conn: sqlalchemy.Connection):
 def _concat_columns(columns: List[Dict[str, str]], json_string_escape=False) -> str:
     exps = []
     for c in columns:
-        name = c["column_name"]
+        name = "[" + c["column_name"] + "]"
         type = c["column_type"]
         if json_string_escape and type in ms.Keywords.string_types:
+            if type in (ms.Keywords.NTEXT, ms.Keywords.TEXT):
+                name = f"CONVERT(NVARCHAR(MAX), {name})"
             exp = f"STRING_ESCAPE({name}, 'json') AS {name}"
         else:
             exp = name

@@ -18,6 +18,8 @@ class Keywords:
         "VARCHAR",
         "XML",
     ]
+    NTEXT = "NTEXT"
+    TEXT = "TEXT"
 
 
 def table_spaceused(table, conn: sqlalchemy.Connection) -> Dict[str, Any]:
