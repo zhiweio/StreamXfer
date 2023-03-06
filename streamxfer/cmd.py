@@ -128,13 +128,14 @@ class BCP:
         packet_size: int = 65535,
         shell=True,
         conn: sqlalchemy.Connection = None,
+        prevent_precisions_loss=True,
     ) -> Union[List[str], str]:
         if conn is None:
             engine = create_engine("mssql+pymssql://scott:tiger@hostname:port/dbname")
             with engine.connect() as conn:
-                query = _build_bcp_query(table, format, conn)
+                query = _build_bcp_query(table, format, conn, prevent_precisions_loss)
         else:
-            query = _build_bcp_query(table, format, conn)
+            query = _build_bcp_query(table, format, conn, prevent_precisions_loss)
         query = quote_this("".join(query.splitlines()))
 
         url = make_url(pymssql_url)
@@ -167,11 +168,16 @@ class BCP:
         return _cmd
 
 
-def _build_bcp_query(table, format: str, conn: sqlalchemy.Connection):
+def _build_bcp_query(
+    table, format: str, conn: sqlalchemy.Connection, prevent_precisions_loss=True
+):
     columns = ms.table_columns(table, conn)
     if format == Format.JSON:
         expr = _concat_columns(
-            columns, float_compatible=True, dot_compatible=contains_dot(columns)
+            columns,
+            format,
+            dot_compatible=contains_dot(columns),
+            prevent_precisions_loss=prevent_precisions_loss,
         )
         query = textwrap.dedent(
             f"""
@@ -181,37 +187,46 @@ def _build_bcp_query(table, format: str, conn: sqlalchemy.Connection):
         """
         )
     elif format == Format.TSV:
-        expr = _concat_columns(columns, json_string_escape=True)
+        expr = _concat_columns(columns, format, json_string_escape=True)
         query = f"SELECT {expr} FROM {table} (nolock)"
     else:
-        expr = _concat_columns(columns)
+        expr = _concat_columns(columns, format)
         query = f"SELECT {expr} FROM {table} (nolock)"
     return query
 
 
 def _concat_columns(
     columns: List[Dict[str, str]],
+    format: str = Format.TSV,
     json_string_escape=False,
-    float_compatible=False,
     dot_compatible=False,
+    prevent_precisions_loss=False,
 ) -> str:
     exps = []
     for c in columns:
         name = "[" + c["column_name"] + "]"
-        if dot_compatible:
+        type = c["column_type"]
+
+        if format == Format.JSON and dot_compatible:
             name_alias = mask_dot_name(name)
         else:
             name_alias = name
-        type = c["column_type"]
-        if json_string_escape and type in ms.Keywords.string_types:
-            if type in (ms.Keywords.NTEXT, ms.Keywords.TEXT):
-                name = f"CONVERT(NVARCHAR(MAX), {name})"
-            exp = f"STRING_ESCAPE({name}, 'json') AS {name_alias}"
-        elif float_compatible and type == ms.Keywords.FLOAT:
-            exp = f"CONVERT(DECIMAL(38,15), {name}) AS {name_alias}"
-        else:
-            exp = f"{name} AS {name_alias}"
+
+        exp = f"{name} AS {name_alias}"
+        if format == Format.TSV:
+            if type in ms.Keywords.string_types and json_string_escape:
+                if type in (ms.Keywords.NTEXT, ms.Keywords.TEXT):
+                    name = f"CONVERT(NVARCHAR(MAX), {name})"
+                exp = f"STRING_ESCAPE({name}, 'json') AS {name_alias}"
+        elif format == Format.JSON:
+            if prevent_precisions_loss:
+                # prevent precisions loss for numeric types
+                if type == ms.Keywords.FLOAT:
+                    exp = f"CONVERT(VARCHAR(MAX), CONVERT(DECIMAL(38,15), {name})) AS {name_alias}"
+                elif type in (ms.Keywords.NUMERIC, ms.Keywords.DECIMAL):
+                    exp = f"CONVERT(VARCHAR(MAX), {name}) AS {name_alias}"
         exps.append(exp)
+
     return ", ".join(exps)
 
 

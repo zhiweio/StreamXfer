@@ -23,6 +23,8 @@ class Keywords:
     NTEXT = "NTEXT"
     TEXT = "TEXT"
     FLOAT = "FLOAT"
+    NUMERIC = "NUMERIC"
+    DECIMAL = "DECIMAL"
 
 
 def table_spaceused(table, conn: sqlalchemy.Connection) -> Dict[str, Any]:
