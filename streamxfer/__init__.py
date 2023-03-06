@@ -12,11 +12,12 @@ from streamxfer.cmd import (
     Cat,
     RedshiftEscape,
     MssqlCsvEscape,
+    MssqlJsonEscape,
 )
 from streamxfer.compress import COMPRESS_LEVEL
 from streamxfer.format import Format, sc
 from streamxfer.log import LOG
-from streamxfer.utils import mktempfifo, cmd2pipe, wait_until_created
+from streamxfer.utils import mktempfifo, cmd2pipe, wait_until_created, contains_dot
 
 __module__ = ["StreamXfer"]
 __all__ = ["StreamXfer"]
@@ -73,6 +74,7 @@ class StreamXfer:
 
         engine = create_engine(self.url)
         conn = engine.connect()
+        dot_in_cols = False
         try:
             tbl_size = ms.table_data_size(table, conn)
             if tbl_size == 0:
@@ -91,6 +93,8 @@ class StreamXfer:
                 shell=True,
                 conn=conn,
             )
+            columns = ms.table_columns(table, conn)
+            dot_in_cols = contains_dot(columns)
         finally:
             conn.close()
 
@@ -107,6 +111,8 @@ class StreamXfer:
             cmds.insert(1, RedshiftEscape.cmd(shell=True))
         elif self.format == Format.CSV:
             cmds.insert(1, MssqlCsvEscape.cmd(shell=True))
+        elif self.format == Format.JSON and dot_in_cols:
+            cmds.insert(1, MssqlJsonEscape.cmd(shell=True))
 
         self._pipe = cmd2pipe(*cmds)
 

@@ -1,10 +1,12 @@
 import textwrap
 
+import orjson
 import sqlalchemy
 
 from streamxfer.format import KB
 from streamxfer.format import sc, sa
 from streamxfer.typing import *
+from streamxfer.utils import unmask_dot
 
 
 class Keywords:
@@ -88,3 +90,9 @@ def mssql_csv_escape(line: str) -> str:
     fields = line.split(csv_in_ft)
     fields = ['"' + _.replace('"', '""') + '"' for _ in fields]
     return csv_out_ft.join(fields) + csv_out_rt
+
+
+def mssql_json_escape(line: str) -> str:
+    data = orjson.loads(line)
+    data = unmask_dot(data)
+    return orjson.dumps(data).decode("utf-8") + sc.LN

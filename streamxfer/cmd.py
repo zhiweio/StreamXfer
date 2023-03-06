@@ -7,7 +7,7 @@ from sqlalchemy import create_engine, make_url
 from streamxfer import mssql as ms
 from streamxfer.compress import supported, COMPRESS_LEVEL
 from streamxfer.format import Format, sc
-from streamxfer.utils import quote_this, IS_MACOS
+from streamxfer.utils import quote_this, IS_MACOS, contains_dot, mask_dot_name
 
 
 class Cat:
@@ -67,6 +67,15 @@ class Compress:
 class MssqlCsvEscape:
     name = "stx-mssql-csv-escape"
     bin = "stx-mssql-csv-escape"
+
+    @classmethod
+    def cmd(cls, shell=True) -> Union[List[str], str]:
+        return cls.bin
+
+
+class MssqlJsonEscape:
+    name = "stx-mssql-json-escape"
+    bin = "stx-mssql-json-escape"
 
     @classmethod
     def cmd(cls, shell=True) -> Union[List[str], str]:
@@ -161,7 +170,9 @@ class BCP:
 def _build_bcp_query(table, format: str, conn: sqlalchemy.Connection):
     columns = ms.table_columns(table, conn)
     if format == Format.JSON:
-        expr = _concat_columns(columns, float_compatible=True)
+        expr = _concat_columns(
+            columns, float_compatible=True, dot_compatible=contains_dot(columns)
+        )
         query = textwrap.dedent(
             f"""
             SELECT(SELECT {expr}
@@ -179,20 +190,27 @@ def _build_bcp_query(table, format: str, conn: sqlalchemy.Connection):
 
 
 def _concat_columns(
-    columns: List[Dict[str, str]], json_string_escape=False, float_compatible=False
+    columns: List[Dict[str, str]],
+    json_string_escape=False,
+    float_compatible=False,
+    dot_compatible=False,
 ) -> str:
     exps = []
     for c in columns:
         name = "[" + c["column_name"] + "]"
+        if dot_compatible:
+            name_alias = mask_dot_name(name)
+        else:
+            name_alias = name
         type = c["column_type"]
         if json_string_escape and type in ms.Keywords.string_types:
             if type in (ms.Keywords.NTEXT, ms.Keywords.TEXT):
                 name = f"CONVERT(NVARCHAR(MAX), {name})"
-            exp = f"STRING_ESCAPE({name}, 'json') AS {name}"
+            exp = f"STRING_ESCAPE({name}, 'json') AS {name_alias}"
         elif float_compatible and type == ms.Keywords.FLOAT:
-            exp = f"CONVERT(DECIMAL(38,15), {name}) AS {name}"
+            exp = f"CONVERT(DECIMAL(38,15), {name}) AS {name_alias}"
         else:
-            exp = name
+            exp = f"{name} AS {name_alias}"
         exps.append(exp)
     return ", ".join(exps)
 

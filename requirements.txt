@@ -4,3 +4,4 @@ boto3
 loguru
 click
 psutil
+orjson

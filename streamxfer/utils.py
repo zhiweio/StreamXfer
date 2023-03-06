@@ -50,3 +50,22 @@ def quote_this(this: str) -> str:
 def cmd2pipe(*cmds: Union[List[str], str]):
     cmds = [" ".join(cmd) if isinstance(cmd, list) else cmd for cmd in cmds]
     return " | ".join(cmds)
+
+
+def contains_dot(columns: List[Dict]):
+    for col in columns:
+        if "." in col["column_name"]:
+            return True
+    return False
+
+
+def mask_dot_name(name: str) -> str:
+    return name.replace(".", "||")
+
+
+def unmask_dot(json_data: Dict):
+    data = dict()
+    for col_name, col_value in json_data.items():
+        col_name = col_name.replace("||", ".")
+        data[col_name] = col_value
+    return data

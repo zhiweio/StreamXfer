@@ -19,6 +19,7 @@ setup(
         "console_scripts": [
             "stx = streamxfer.cli.main:cli",
             "stx-mssql-csv-escape = streamxfer.cli.mssql_csv_escape:cli",
+            "stx-mssql-json-escape = streamxfer.cli.mssql_json_escape:cli",
             "stx-redshift-escape = streamxfer.cli.redshift_escape:cli",
         ],
     },
