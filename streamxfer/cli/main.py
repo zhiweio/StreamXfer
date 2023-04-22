@@ -52,9 +52,9 @@ def cli(
         compress_type=compress_type,
     )
     if output_path.startswith("s3://"):
-        sink = S3Sink()
+        sink = "s3"
     else:
-        sink = LocalSink()
+        sink = "local"
     sx.build(table, output_path, sink, enable_redshift_escape)
     sx.pump()
 

@@ -86,7 +86,7 @@ sx = StreamXfer(
     enable_compress=True,
     compress_type="LZOP",
 )
-sx.build("[dbo].[test]", "s3://bucket/path/to/dir/", sink=S3Sink())
+sx.build("[dbo].[test]", path="s3://bucket/path/to/dir/", sink="s3")
 sx.pump()
 
 ```

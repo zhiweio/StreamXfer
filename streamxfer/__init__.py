@@ -1,5 +1,6 @@
 import os
 from subprocess import Popen
+from typing import Literal
 
 import psutil
 from sqlalchemy import create_engine
@@ -13,6 +14,8 @@ from streamxfer.cmd import (
     RedshiftEscape,
     MssqlCsvEscape,
     MssqlJsonEscape,
+    LocalSink,
+    S3Sink,
 )
 from streamxfer.compress import COMPRESS_LEVEL
 from streamxfer.format import Format, sc
@@ -27,6 +30,11 @@ from streamxfer.utils import (
 
 __module__ = ["StreamXfer"]
 __all__ = ["StreamXfer"]
+
+_sinks = {
+    "s3": S3Sink(),
+    "local": LocalSink(),
+}
 
 
 class StreamXfer:
@@ -48,6 +56,7 @@ class StreamXfer:
         self._bcp = None
         self._pipe = None
         self._fifo = None
+        self.sink = None
 
     @property
     def bcp(self):
@@ -61,9 +70,14 @@ class StreamXfer:
         self,
         table,
         path: str,
-        sink,
+        sink: Literal["s3", "local"],
         redshift_escape=False,
     ):
+        try:
+            self.sink = _sinks[sink]
+        except KeyError:
+            raise ValueError(f"Unsupported sink: {sink!r}")
+
         compress = Compress(self.compress_type)
         file_ext = "." + self.format.lower()
         if self.enable_compress:
@@ -105,7 +119,7 @@ class StreamXfer:
         finally:
             conn.close()
 
-        upload_cmd = sink.cmd(uri)
+        upload_cmd = self.sink.cmd(uri)
         compress_cmd = compress.cmd(level=self.compress_level)
         if self.enable_compress:
             split_filter = cmd2pipe(compress_cmd, upload_cmd)
