@@ -28,7 +28,7 @@ class StreamXfer:
         self,
         url,
         format: str,
-        enable_compress=True,
+        enable_compress=False,
         compress_type: str = Compress.lzop.name,
         compress_level=COMPRESS_LEVEL,
         chunk_size=1000000,

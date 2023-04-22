@@ -15,7 +15,7 @@ from streamxfer.format import Format
 @click.option(
     "-F",
     "--format",
-    default=Format.TSV,
+    default=Format.JSON,
     type=click.Choice(format.supported, case_sensitive=False),
     show_default=True,
 )
@@ -47,9 +47,9 @@ def cli(
     """
     sx = StreamXfer(
         pymssql_url,
-        format.upper(),
+        format,
         enable_compress=not disable_compress,
-        compress_type=compress_type.upper(),
+        compress_type=compress_type,
     )
     if output_path.startswith("s3://"):
         sink = S3Sink()

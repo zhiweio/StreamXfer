@@ -122,7 +122,7 @@ class BCP:
         pymssql_url,
         flat_file: str,
         direc="queryout",
-        format: str = Format.TSV,
+        format: str = Format.JSON,
         field_terminator=sc.TAB,
         row_terminator=sc.LN,
         packet_size: int = 65535,
