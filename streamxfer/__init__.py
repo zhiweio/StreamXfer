@@ -123,21 +123,21 @@ class StreamXfer:
         LOG.debug(f"Command BCP: {self.bcp}")
         LOG.debug(f"Command pipe: {self.pipe}")
 
-        bcp_proc = Popen(self.bcp, shell=True)
-        p = psutil.Process(bcp_proc.pid)
-        LOG.debug(
-            f"BCP process started, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
-            f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
-        )
-        wait_until_created(self._fifo, retry=15)
         if not os.path.exists(self._fifo):
-            raise RuntimeError(f"BCP failed to create fifo: {self._fifo}")
+            raise RuntimeError(f"fifo not created: {self._fifo}")
 
         pipe_proc = Popen(self.pipe, shell=True)
         pp = psutil.Process(pipe_proc.pid)
         LOG.debug(
-            f"pipe built, name: {pp.name()}\tpid: {pp.pid}\tppid: {pp.ppid()}\t"
+            f"Sink started, name: {pp.name()}\tpid: {pp.pid}\tppid: {pp.ppid()}\t"
             f"exe: {pp.exe()}\tcmdline: {pp.cmdline()}"
+        )
+
+        bcp_proc = Popen(self.bcp, shell=True)
+        p = psutil.Process(bcp_proc.pid)
+        LOG.debug(
+            f"Source started, name: {p.name()}\tpid: {p.pid}\tppid: {p.ppid()}\t"
+            f"exe: {p.exe()}\tcmdline: {p.cmdline()}"
         )
 
         returncode = bcp_proc.wait()
