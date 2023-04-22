@@ -61,12 +61,11 @@ Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
       stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir/
 
 Options:
-  -F, --format [CSV|TSV|JSON]  [default: TSV]
+  -F, --format [CSV|TSV|JSON]  [default: JSON]
   --compress-type [LZOP|GZIP]  [default: LZOP]
   --no-compress
   --redshift-escape
   --help                       Show this message and exit.
-
 
 ```
 
