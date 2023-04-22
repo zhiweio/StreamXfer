@@ -23,6 +23,11 @@ def mktempfifo(suffix=""):
     return fifo
 
 
+def rmtempfifo(fifo):
+    if os.path.exists(fifo):
+        os.remove(fifo)
+
+
 def wait_until_created(filename, retry=30):
     while retry > 0:
         if os.path.exists(filename):

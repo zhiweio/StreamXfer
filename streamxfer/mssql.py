@@ -2,6 +2,7 @@ import textwrap
 
 import orjson
 import sqlalchemy
+from pymssql._pymssql import ProgrammingError  # noqa
 
 from streamxfer.format import KB
 from streamxfer.format import sc, sa

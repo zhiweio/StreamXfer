@@ -17,7 +17,13 @@ from streamxfer.cmd import (
 from streamxfer.compress import COMPRESS_LEVEL
 from streamxfer.format import Format, sc
 from streamxfer.log import LOG
-from streamxfer.utils import mktempfifo, cmd2pipe, wait_until_created, contains_dot
+from streamxfer.utils import (
+    mktempfifo,
+    rmtempfifo,
+    cmd2pipe,
+    wait_until_created,
+    contains_dot,
+)
 
 __module__ = ["StreamXfer"]
 __all__ = ["StreamXfer"]
@@ -74,14 +80,15 @@ class StreamXfer:
 
         engine = create_engine(self.url)
         conn = engine.connect()
-        dot_in_cols = False
         try:
             tbl_size = ms.table_data_size(table, conn)
             if tbl_size == 0:
-                LOG.info(f"Table {table!r} is empty")
-                return
-        except Exception:
-            pass
+                rmtempfifo(self._fifo)
+                LOG.debug(f"Table {table!r} is empty")
+                raise ms.ProgrammingError(f"no result set")
+        except Exception as e:
+            rmtempfifo(self._fifo)
+            raise e
         else:
             self._bcp = BCP.cmd(
                 table,
