@@ -16,7 +16,13 @@ Before installing StreamXfer, you need to install the following dependencies:
 * mssql-tools: [SQL Docs - bcp Utility](https://learn.microsoft.com/en-us/sql/tools/bcp-utility?view=sql-server-ver16)
 * lzop: `yum install lzop`
 
-Then, install StreamXfer from source:
+Then, install StreamXfer from PyPI:
+
+```shell
+$ python3 -m pip install 
+```
+
+Alternatively, install from source:
 
 ```shell
 $ git clone https://github.com/zhiweio/StreamXfer.git && cd StreamXfer/

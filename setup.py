@@ -1,9 +1,8 @@
+import io
+
 from setuptools import setup, find_packages
 
 __version__ = "0.0.1"
-
-with open("README.md", encoding="utf-8") as readme_file:
-    readme = readme_file.read()
 
 with open("requirements.txt", encoding="utf-8") as requirements_file:
     requirements = [_.strip() for _ in requirements_file.readlines()]
@@ -12,7 +11,8 @@ setup(
     name="streamxfer",
     version=__version__,
     description="StreamXfer is a powerful tool for streaming data from SQL Server to object storage for seamless transfer using UNIX pipe, supporting various general data formats(CSV, TSV, JSON).",
-    long_description=readme,
+    long_description=io.open("README.md", encoding="utf-8").read(),
+    long_description_content_type="text/markdown",
     packages=find_packages(),
     include_package_data=True,
     install_requires=requirements,
