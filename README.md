@@ -19,7 +19,7 @@ Before installing StreamXfer, you need to install the following dependencies:
 Then, install StreamXfer from PyPI:
 
 ```shell
-$ python3 -m pip install 
+$ python3 -m pip install streamxfer
 ```
 
 Alternatively, install from source:
