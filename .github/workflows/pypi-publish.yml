@@ -1,0 +1,68 @@
+name: Publish to PyPI
+
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: The run of wheel-builder to use for finding artifacts.
+        required: true
+      environment:
+        description: Which PyPI environment to upload to
+        required: true
+        type: choice
+        options: ["testpypi", "pypi"]
+  workflow_run:
+    workflows: ["Wheel Builder"]
+    types: [completed]
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    # We're not actually verifying that the triggering push event was for a
+    # tag, because github doesn't expose enough information to do so.
+    # wheel-builder.yml currently only has push events for tags.
+    if: github.event_name == 'workflow_dispatch' || (github.event.workflow_run.event == 'push' && github.event.workflow_run.conclusion == 'success')
+    permissions:
+      id-token: "write"
+    steps:
+      - uses: actions/setup-python@v4
+        with:
+          python-version: "3.9"
+      - name: Install Python dependencies
+        run: pip install twine sigstore
+
+      - uses: dawidd6/action-download-artifact@v3
+        with:
+          path: dist/
+          run_id: ${{ github.event.inputs.run_id || github.event.workflow_run.id }}
+
+      - run: |
+          echo "OIDC_AUDIENCE=pypi" >> $GITHUB_ENV
+          echo "PYPI_DOMAIN=pypi.org" >> $GITHUB_ENV
+          echo "TWINE_REPOSITORY=pypi" >> $GITHUB_ENV
+          echo "TWINE_USERNAME=__token__" >> $GITHUB_ENV
+          echo "TWINE_PASSWORD=${TWINE_PASSWORD}" >> $GITHUB_ENV
+        env:
+          TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
+        if: github.event_name == 'workflow_run' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'pypi')
+
+      - run: |
+          echo "OIDC_AUDIENCE=testpypi" >> $GITHUB_ENV
+          echo "PYPI_DOMAIN=test.pypi.org" >> $GITHUB_ENV
+          echo "TWINE_REPOSITORY=testpypi" >> $GITHUB_ENV
+          echo "TWINE_USERNAME=__token__" >> $GITHUB_ENV
+          echo "TWINE_PASSWORD=${TWINE_PASSWORD}" >> $GITHUB_ENV
+        env:
+          TWINE_PASSWORD: ${{ secrets.TEST_PYPI_API_TOKEN }}
+        if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'testpypi'
+
+      - run: twine upload --skip-existing $(find dist/ -type f -name 'streamxfer*')
+      # Do not perform sigstore signatures for things for TestPyPI. This is
+      # because there's nothing that would prevent a malicious PyPI from
+      # serving a signed TestPyPI asset in place of a release intended for
+      # PyPI.
+      - run: sigstore sign $(find dist/ -type f -name 'streamxfer*')
+        if: env.TWINE_REPOSITORY == 'pypi'
