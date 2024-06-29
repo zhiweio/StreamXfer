@@ -1,8 +1,11 @@
 # StreamXfer
 
-StreamXfer is a powerful tool for streaming data from SQL Server to object storage for seamless transfer using UNIX
+StreamXfer is a powerful tool for streaming data from SQL Server to local or object storage(S3) for seamless transfer using UNIX
 pipe, supporting various general data formats(CSV, TSV, JSON).
 
+**Supported OS:** Linux, macOS
+
+_I've migrated 10TB data from SQL Server into Amazon Redshift using this tool._
 
 ## Demo
 
@@ -14,7 +17,7 @@ pipe, supporting various general data formats(CSV, TSV, JSON).
 Before installing StreamXfer, you need to install the following dependencies:
 
 * mssql-tools: [SQL Docs - bcp Utility](https://learn.microsoft.com/en-us/sql/tools/bcp-utility?view=sql-server-ver16)
-* lzop: `yum install lzop`
+* lzop: [Download](https://www.lzop.org/)
 
 Then, install StreamXfer from PyPI:
 
@@ -50,12 +53,11 @@ You can also use the following options:
 
 * `-F, --format`: The data format (CSV, TSV, or JSON).
 * `--compress-type`: The compression type (LZOP or GZIP).
-* `--no-compress`: Disables compression.
 
 For more information on the options, run stx --help.
 
 ```shell
-$ stx --help
+$ stx --help             
 Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
 
   StreamXfer is a powerful tool for streaming data from SQL Server to object
@@ -68,30 +70,30 @@ Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
 
 Options:
   -F, --format [CSV|TSV|JSON]  [default: JSON]
-  --compress-type [LZOP|GZIP]  [default: LZOP]
-  --no-compress
-  --redshift-escape
+  --compress-type [LZOP|GZIP]
+  --redshift-compatible
   --help                       Show this message and exit.
 
 ```
 
 ### Library Usage
 
-To use StreamXfer as a library in Python, you can import the StreamXfer class and the sink classes (such as S3Sink), and use them to build and pump the data stream.
+To use StreamXfer as a library in Python, you can import the StreamXfer class, and use them to build and pump the data stream.
 
 Here is an example code snippet:
 
 ```python
 from streamxfer import StreamXfer
-from streamxfer.cmd import S3Sink
+from streamxfer.format import Format
+from streamxfer.compress import CompressType
 
 sx = StreamXfer(
     "mssql+pymssql:://user:pass@host:port/db",
-    format="TSV",
-    enable_compress=True,
-    compress_type="LZOP",
+    format=Format.CSV,
+    compress_type=CompressType.LZOP,
+    chunk_size=1000000,
 )
-sx.build("[dbo].[test]", path="s3://bucket/path/to/dir/", sink="s3")
+sx.build("[dbo].[test]", path="s3://bucket/path/to/dir/")
 sx.pump()
 
 ```

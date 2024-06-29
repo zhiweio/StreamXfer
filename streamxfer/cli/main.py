@@ -1,10 +1,8 @@
 import click
 
 from streamxfer import StreamXfer
-from streamxfer import compress
-from streamxfer import format
-from streamxfer.cmd import Compress
-from streamxfer.cmd import S3Sink, LocalSink
+from streamxfer.compress import supported as supported_compress
+from streamxfer.format import supported as supported_format
 from streamxfer.format import Format
 
 
@@ -16,27 +14,25 @@ from streamxfer.format import Format
     "-F",
     "--format",
     default=Format.JSON,
-    type=click.Choice(format.supported, case_sensitive=False),
+    type=click.Choice(supported_format, case_sensitive=False),
     show_default=True,
 )
 @click.option(
     "--compress-type",
-    default=Compress.lzop.name,
-    type=click.Choice(compress.supported, case_sensitive=False),
+    default=None,
+    type=click.Choice(supported_compress, case_sensitive=False),
     show_default=True,
 )
-@click.option("--no-compress", "disable_compress", is_flag=True)
-@click.option("--redshift-escape", "enable_redshift_escape", is_flag=True)
+@click.option("--redshift-compatible", "redshift_compatible", is_flag=True)
 def cli(
     pymssql_url,
     table,
     output_path,
     format,
     compress_type,
-    disable_compress,
-    enable_redshift_escape,
+    redshift_compatible,
 ):
-    """StreamXfer is a powerful tool for streaming data from SQL Server to object storage for seamless transfer
+    """StreamXfer is a powerful tool for streaming data from SQL Server to local or object storage(S3) for seamless transfer
     using UNIX pipe, supporting various general data formats(CSV, TSV, JSON).
 
     \b
@@ -48,14 +44,9 @@ def cli(
     sx = StreamXfer(
         pymssql_url,
         format,
-        enable_compress=not disable_compress,
         compress_type=compress_type,
     )
-    if output_path.startswith("s3://"):
-        sink = "s3"
-    else:
-        sink = "local"
-    sx.build(table, output_path, sink, enable_redshift_escape)
+    sx.build(table, output_path, redshift_compatible)
     sx.pump()
 
 

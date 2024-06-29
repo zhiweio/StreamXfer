@@ -1,13 +1,19 @@
 import textwrap
 from typing import Union, List, Dict
 
+from shutil import which
+
 import sqlalchemy
 from sqlalchemy import create_engine, make_url
 
 from streamxfer import mssql as ms
-from streamxfer.compress import supported, COMPRESS_LEVEL
 from streamxfer.format import Format, sc
 from streamxfer.utils import quote_this, IS_MACOS, contains_dot, mask_dot_name
+
+
+def raise_if_not_exists(exe: str):
+    if not which(exe):
+        raise FileNotFoundError(f"Executable file {exe!r} not found, please install it")
 
 
 class Cat:
@@ -16,6 +22,7 @@ class Cat:
 
     @classmethod
     def cmd(cls, file=None, shell=True) -> Union[List[str], str]:
+        raise_if_not_exists(cls.bin)
         _cmd = [cls.bin]
         if file is not None:
             _cmd.append(quote_this(file))
@@ -24,71 +31,55 @@ class Cat:
         return _cmd
 
 
-class _Compress:
+class BaseCompress:
     name = None
     bin = None
     ext = None
 
     @classmethod
-    def cmd(cls, level=COMPRESS_LEVEL, shell=True) -> Union[List[str], str]:
+    def cmd(cls, level=6, shell=True) -> Union[List[str], str]:
+        raise_if_not_exists(cls.bin)
         _cmd = [cls.bin, f"-{level}"]
         if shell:
             return " ".join(_cmd)
         return _cmd
 
 
-class GZIP(_Compress):
+class GZIPCompress(BaseCompress):
     name = "GZIP"
     bin = "gzip"
     ext = ".gz"
 
 
-class LZOP(_Compress):
+class LZOPCompress(BaseCompress):
     name = "LZOP"
     bin = "lzop"
     ext = ".lzo"
 
 
-class Compress:
-    lzop = LZOP
-    gzip = GZIP
+class BaseEscape:
+    name = None
+    bin = None
 
-    def __init__(self, type):
-        assert type in supported, f"compress {type} does not support"
-        self.type = type
-
-    def cmd(self, level=COMPRESS_LEVEL, shell=True) -> Union[List[str], str]:
-        return getattr(self, self.type.lower()).cmd(level, shell)
-
-    def ext(self):
-        return getattr(self, self.type.lower()).ext
+    @classmethod
+    def cmd(cls, shell=True) -> Union[List[str], str]:
+        raise_if_not_exists(cls.bin)
+        return cls.bin
 
 
-class MssqlCsvEscape:
+class MssqlCsvEscape(BaseEscape):
     name = "stx-mssql-csv-escape"
     bin = "stx-mssql-csv-escape"
 
-    @classmethod
-    def cmd(cls, shell=True) -> Union[List[str], str]:
-        return cls.bin
 
-
-class MssqlJsonEscape:
+class MssqlJsonEscape(BaseEscape):
     name = "stx-mssql-json-escape"
     bin = "stx-mssql-json-escape"
 
-    @classmethod
-    def cmd(cls, shell=True) -> Union[List[str], str]:
-        return cls.bin
 
-
-class RedshiftEscape:
+class RedshiftEscape(BaseEscape):
     name = "stx-redshift-escape"
     bin = "stx-redshift-escape"
-
-    @classmethod
-    def cmd(cls, shell=True) -> Union[List[str], str]:
-        return cls.bin
 
 
 class Split:
@@ -97,6 +88,7 @@ class Split:
 
     @classmethod
     def cmd(cls, filter: str, lines=1000000, shell=True) -> Union[List[str], str]:
+        raise_if_not_exists(cls.bin)
         _cmd = [
             cls.bin,
             "-l",
@@ -130,8 +122,9 @@ class BCP:
         conn: sqlalchemy.Connection = None,
         prevent_precisions_loss=True,
     ) -> Union[List[str], str]:
+        raise_if_not_exists(cls.bin)
         if conn is None:
-            engine = create_engine("mssql+pymssql://scott:tiger@hostname:port/dbname")
+            engine = create_engine(pymssql_url)
             with engine.connect() as conn:
                 query = _build_bcp_query(table, format, conn, prevent_precisions_loss)
         else:
@@ -228,19 +221,3 @@ def _concat_columns(
         exps.append(exp)
 
     return ", ".join(exps)
-
-
-class LocalSink:
-    bin = Cat.bin
-
-    def cmd(self, uri) -> Union[List[str], str]:
-        _cmd = [self.bin, ">", uri]
-        return " ".join(_cmd)
-
-
-class S3Sink:
-    bin = "aws s3 cp"
-
-    def cmd(self, uri) -> Union[List[str], str]:
-        _cmd = [self.bin, "-", uri]
-        return " ".join(_cmd)
