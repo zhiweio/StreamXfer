@@ -2,7 +2,6 @@ import os
 from subprocess import Popen
 
 import psutil
-from sqlalchemy import create_engine
 
 from streamxfer import mssql as ms
 from streamxfer.typing import *
@@ -98,7 +97,7 @@ class StreamXfer:
             ft = sc.TAB
             rt = sc.LN
 
-        engine = create_engine(self.url)
+        engine = ms.SqlCreds.from_url(self.url)
         conn = engine.connect()
         try:
             tbl_size = ms.table_data_size(table, conn)

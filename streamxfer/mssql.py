@@ -1,8 +1,12 @@
+import re
 import textwrap
+from dataclasses import dataclass
+from urllib.parse import urlparse
 
 import orjson
-import sqlalchemy
-from pymssql._pymssql import ProgrammingError  # noqa
+import pymssql
+from pymssql import Connection
+from pymssql.exceptions import ProgrammingError  # noqa
 
 from streamxfer.format import KB
 from streamxfer.format import sc, sa
@@ -28,7 +32,74 @@ class Keywords:
     DECIMAL = "DECIMAL"
 
 
-def table_spaceused(table, conn: sqlalchemy.Connection) -> Dict[str, Any]:
+@dataclass
+class SqlCreds:
+    """
+    Credential object for all SQL operations.
+
+    Attributes:
+        server (str): The server address of the SQL database.
+        database (str): The database name.
+        username (str): The username for SQL authentication.
+        password (str): The password for SQL authentication.
+        port (int): The port number for the SQL server connection.
+    """
+
+    server: str
+    database: str
+    username: Optional[str] = None
+    password: Optional[str] = None
+    port: str = "1433"
+
+    def connect(self) -> Connection:
+        """
+        Establishes a connection to the SQL database.
+
+        Args:
+            autocommit (bool, optional): Whether to enable autocommit mode. Defaults to False.
+
+        Returns:
+            pymssql.Connection: A connection object to the SQL database.
+        """
+        return pymssql.connect(
+            server=self.server,
+            user=self.username,
+            password=self.password,
+            database=self.database,
+            port=self.port,
+        )
+
+    @classmethod
+    def from_url(cls, url, identifier=None):
+        """
+        Creates a SqlCreds instance from a database URL.
+
+        Args:
+            url (str): The database URL in the format 'mssql://user:password@host/database'.
+        """
+        if not re.match(r"mssql://(.*?):(.*?)@(.*?)/(.*)", url):
+            raise Exception(
+                "Invalid db_url, must be 'mssql://user:password@host/database'"
+            )
+
+        dsn = urlparse(url)
+        hostname = str(dsn.hostname)
+        if identifier:
+            hostname = hostname.split(".")
+            hostname = identifier + "." + ".".join(hostname[1:])
+        return cls(
+            server=hostname,
+            database=dsn.path.lstrip("/"),
+            port=dsn.port or "1433",
+            username=dsn.username,
+            password=dsn.password,
+        )
+
+    def to_url(self):
+        return f"mssql://{self.username}:{self.password}@{self.server}/{self.database}"
+
+
+def table_spaceused(table, conn: Connection) -> Union[Dict[str, Any], None]:
     """
     {
         "name" : "[RISKMGT].[FACT_AccountingCheck]",
@@ -40,13 +111,13 @@ def table_spaceused(table, conn: sqlalchemy.Connection) -> Dict[str, Any]:
     }
     """
     sql = f"EXEC sp_spaceused '{table}'"
-    cur = conn.execute(sqlalchemy.text(sql))
-    row = cur.fetchone()
-    if row:
-        return row._asdict()
+    with conn.cursor(as_dict=True) as cur:
+        cur.execute(sql)
+        row = cur.fetchone()
+        return row
 
 
-def table_data_size(table, conn: sqlalchemy.Connection) -> int:
+def table_data_size(table, conn: Connection) -> int:
     res = table_spaceused(table, conn)
     if not res:
         return 0
@@ -54,7 +125,7 @@ def table_data_size(table, conn: sqlalchemy.Connection) -> int:
     return int(data) * KB  # Bytes
 
 
-def table_columns(table, conn: sqlalchemy.Connection) -> List[Dict]:
+def table_columns(table, conn: Connection) -> List[Dict]:
     sql = textwrap.dedent(
         f"""
 with table_info as (select a.name as table_name, b.name as schema_name
@@ -68,10 +139,11 @@ from information_schema.columns a
          join table_info b on a.table_name = b.table_name and a.table_schema = b.schema_name
     """
     )
-    cur = conn.execute(sqlalchemy.text(sql))
-    rows = cur.fetchall()
-    columns = [row._asdict() for row in rows]
-    return columns
+    with conn.cursor(as_dict=True) as cur:
+        cur.execute(sql)
+        rows = cur.fetchall()
+        columns = [row for row in rows]
+        return columns
 
 
 csv_in_ft = f"{sc.SOH}{sc.STX}{sc.STX}{sc.SOH}"

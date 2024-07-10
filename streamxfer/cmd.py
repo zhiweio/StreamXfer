@@ -1,12 +1,9 @@
 import textwrap
-from typing import Union, List, Dict
 
 from shutil import which
 
-import sqlalchemy
-from sqlalchemy import create_engine, make_url
-
 from streamxfer import mssql as ms
+from streamxfer.typing import *
 from streamxfer.format import Format, sc
 from streamxfer.utils import quote_this, IS_MACOS, contains_dot, mask_dot_name
 
@@ -119,29 +116,29 @@ class BCP:
         row_terminator=sc.LN,
         packet_size: int = 65535,
         shell=True,
-        conn: sqlalchemy.Connection = None,
+        conn: ms.Connection = None,
         prevent_precisions_loss=True,
     ) -> Union[List[str], str]:
         raise_if_not_exists(cls.bin)
+
+        engine = ms.SqlCreds.from_url(pymssql_url)
         if conn is None:
-            engine = create_engine(pymssql_url)
             with engine.connect() as conn:
                 query = _build_bcp_query(table, format, conn, prevent_precisions_loss)
         else:
             query = _build_bcp_query(table, format, conn, prevent_precisions_loss)
         query = quote_this("".join(query.splitlines()))
 
-        url = make_url(pymssql_url)
-        auth = ["-U", url.username, "-P", url.password]
+        auth = ["-U", engine.username, "-P", engine.password]
         _cmd = [
             cls.bin,
             query,
             direc,
             quote_this(flat_file),
             "-S",
-            url.host,
+            engine.host,
             "-d",
-            url.database,
+            engine.database,
             "-q",  # Executes the SET QUOTED_IDENTIFIERS ON statement, needed for Azure SQL DW,
             "-c",
             "-C",
@@ -162,7 +159,7 @@ class BCP:
 
 
 def _build_bcp_query(
-    table, format: str, conn: sqlalchemy.Connection, prevent_precisions_loss=True
+    table, format: str, conn: ms.Connection, prevent_precisions_loss=True
 ):
     columns = ms.table_columns(table, conn)
     if format == Format.JSON:

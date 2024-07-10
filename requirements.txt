@@ -1,4 +1,3 @@
-sqlalchemy~=2.0.10
 pymssql~=2.2.7
 boto3~=1.26.118
 loguru~=0.7.0
