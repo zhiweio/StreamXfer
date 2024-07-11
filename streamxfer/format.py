@@ -46,17 +46,6 @@ def del_nul(s: str) -> str:
     return s.replace("\0", "")
 
 
-def redshift_escape(s: str) -> str:
-    """Escape special characters in TEXT for Redshift COPY command."""
-    return (
-        s.replace("\\t", "\\\\t")
-        .replace("\\n", "\\\\n")
-        .replace("\\r", "\\\\r")
-        .replace("\\f", "\\\\f")
-        .replace("\\b", "\\\\b")
-    )
-
-
 def read_stream(stream, newline=sa.LN):
     buf = bytearray()
     while True:

@@ -1,23 +1,22 @@
 import os
 from subprocess import Popen
-from typing import Literal
 
 import psutil
-from sqlalchemy import create_engine
 
 from streamxfer import mssql as ms
+from streamxfer.typing import *
 from streamxfer.cmd import (
-    Compress,
     BCP,
     Split,
     Cat,
-    RedshiftEscape,
+    MssqlTsvEscape,
     MssqlCsvEscape,
     MssqlJsonEscape,
-    LocalSink,
-    S3Sink,
+    LZOPCompress,
+    GZIPCompress,
 )
-from streamxfer.compress import COMPRESS_LEVEL
+from streamxfer.sink import uri2sink
+from streamxfer.compress import CompressType
 from streamxfer.format import Format, sc
 from streamxfer.log import LOG
 from streamxfer.utils import (
@@ -31,32 +30,34 @@ from streamxfer.utils import (
 __module__ = ["StreamXfer"]
 __all__ = ["StreamXfer"]
 
-_sinks = {
-    "s3": S3Sink(),
-    "local": LocalSink(),
-}
-
 
 class StreamXfer:
     def __init__(
         self,
         url,
         format: str,
-        enable_compress=False,
-        compress_type: str = Compress.lzop.name,
-        compress_level=COMPRESS_LEVEL,
+        compress_type: str = None,
+        compress_level=6,
         chunk_size=1000000,
     ):
         self.url = url
         self.format = format
-        self.compress_type = compress_type
-        self.compress_level = compress_level
-        self.enable_compress = enable_compress
         self.chunk_size = chunk_size
+        self.sink = None
+        self.columns = None
+        self.compress = None
         self._bcp = None
         self._pipe = None
         self._fifo = None
-        self.sink = None
+
+        if compress_type == CompressType.LZOP:
+            self.compress = LZOPCompress
+        elif compress_type == CompressType.GZIP:
+            self.compress = GZIPCompress
+        else:
+            compress_type = None
+        self.enable_compress = compress_type is not None
+        self.compress_level = compress_level
 
     @property
     def bcp(self):
@@ -66,24 +67,27 @@ class StreamXfer:
     def pipe(self):
         return self._pipe
 
+    def add_escape(self, cmds: List[str]):
+        if self.format == Format.TSV:
+            cmds.insert(1, MssqlTsvEscape.cmd())
+        elif self.format == Format.CSV:
+            cmds.insert(1, MssqlCsvEscape.cmd())
+        elif self.format == Format.JSON:
+            if contains_dot(self.columns):
+                cmds.insert(1, MssqlJsonEscape.cmd())
+
     def build(
         self,
         table,
         path: str,
-        sink: Literal["s3", "local"],
-        redshift_escape=False,
     ):
-        try:
-            self.sink = _sinks[sink]
-        except KeyError:
-            raise ValueError(f"Unsupported sink: {sink!r}")
-
-        compress = Compress(self.compress_type)
         file_ext = "." + self.format.lower()
         if self.enable_compress:
-            file_ext = file_ext + compress.ext()
+            file_ext = file_ext + self.compress.ext
+
+        self.sink = uri2sink(path)
+        self.sink.set_file_extension(file_ext)
         self._fifo = mktempfifo(suffix=file_ext)
-        uri = os.path.join(path, "$FILE" + file_ext)
 
         if self.format == Format.CSV:
             ft = ms.csv_in_ft
@@ -92,7 +96,7 @@ class StreamXfer:
             ft = sc.TAB
             rt = sc.LN
 
-        engine = create_engine(self.url)
+        engine = ms.SqlCreds.from_url(self.url)
         conn = engine.connect()
         try:
             tbl_size = ms.table_data_size(table, conn)
@@ -114,27 +118,20 @@ class StreamXfer:
                 shell=True,
                 conn=conn,
             )
-            columns = ms.table_columns(table, conn)
-            dot_in_cols = contains_dot(columns)
+            self.columns = ms.table_columns(table, conn)
         finally:
             conn.close()
 
-        upload_cmd = self.sink.cmd(uri)
-        compress_cmd = compress.cmd(level=self.compress_level)
+        upload_cmd = self.sink.cmd()
         if self.enable_compress:
+            compress_cmd = self.compress.cmd(level=self.compress_level)
             split_filter = cmd2pipe(compress_cmd, upload_cmd)
         else:
             split_filter = upload_cmd
         split_cmd = Split.cmd(filter=split_filter, lines=self.chunk_size)
         cat_cmd = Cat.cmd(self._fifo)
         cmds = [cat_cmd, split_cmd]
-        if self.format == Format.TSV and redshift_escape:
-            cmds.insert(1, RedshiftEscape.cmd(shell=True))
-        elif self.format == Format.CSV:
-            cmds.insert(1, MssqlCsvEscape.cmd(shell=True))
-        elif self.format == Format.JSON and dot_in_cols:
-            cmds.insert(1, MssqlJsonEscape.cmd(shell=True))
-
+        self.add_escape(cmds)
         self._pipe = cmd2pipe(*cmds)
 
     def pump(self):
