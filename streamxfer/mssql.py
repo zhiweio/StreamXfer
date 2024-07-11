@@ -171,3 +171,13 @@ def mssql_json_escape(line: str) -> str:
     data = orjson.loads(line)
     data = unmask_dot(data)
     return orjson.dumps(data).decode("utf-8") + sc.LN
+
+
+def mssql_tsv_escape(s: str) -> str:
+    return (
+        s.replace("\\t", "\\\\t")
+        .replace("\\n", "\\\\n")
+        .replace("\\r", "\\\\r")
+        .replace("\\f", "\\\\f")
+        .replace("\\b", "\\\\b")
+    )

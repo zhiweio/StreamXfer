@@ -9,7 +9,7 @@ from streamxfer.cmd import (
     BCP,
     Split,
     Cat,
-    RedshiftEscape,
+    MssqlTsvEscape,
     MssqlCsvEscape,
     MssqlJsonEscape,
     LZOPCompress,
@@ -67,21 +67,19 @@ class StreamXfer:
     def pipe(self):
         return self._pipe
 
-    def add_escape(self, cmds: List[str], redshift_compatible=False):
+    def add_escape(self, cmds: List[str]):
         if self.format == Format.TSV:
-            if redshift_compatible:
-                cmds.insert(1, RedshiftEscape.cmd(shell=True))
+            cmds.insert(1, MssqlTsvEscape.cmd())
         elif self.format == Format.CSV:
-            cmds.insert(1, MssqlCsvEscape.cmd(shell=True))
+            cmds.insert(1, MssqlCsvEscape.cmd())
         elif self.format == Format.JSON:
             if contains_dot(self.columns):
-                cmds.insert(1, MssqlJsonEscape.cmd(shell=True))
+                cmds.insert(1, MssqlJsonEscape.cmd())
 
     def build(
         self,
         table,
         path: str,
-        redshift_compatible=False,
     ):
         file_ext = "." + self.format.lower()
         if self.enable_compress:
@@ -133,7 +131,7 @@ class StreamXfer:
         split_cmd = Split.cmd(filter=split_filter, lines=self.chunk_size)
         cat_cmd = Cat.cmd(self._fifo)
         cmds = [cat_cmd, split_cmd]
-        self.add_escape(cmds, redshift_compatible=redshift_compatible)
+        self.add_escape(cmds)
         self._pipe = cmd2pipe(*cmds)
 
     def pump(self):

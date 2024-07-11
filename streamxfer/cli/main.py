@@ -24,14 +24,12 @@ from streamxfer.format import Format
     type=click.Choice(supported_compress, case_sensitive=False),
     show_default=True,
 )
-@click.option("--redshift-compatible", "redshift_compatible", is_flag=True)
 def cli(
     pymssql_url,
     table,
     output_path,
     format,
     compress_type,
-    redshift_compatible,
 ):
     """StreamXfer is a powerful tool for streaming data from SQL Server to local or object storage(S3) for seamless transfer
     using UNIX pipe, supporting various general data formats(CSV, TSV, JSON).
@@ -47,7 +45,7 @@ def cli(
         format,
         compress_type=compress_type,
     )
-    sx.build(table, output_path, redshift_compatible)
+    sx.build(table, output_path)
     sx.pump()
 
 

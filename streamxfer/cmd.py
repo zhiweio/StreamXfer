@@ -65,18 +65,18 @@ class BaseEscape:
 
 
 class MssqlCsvEscape(BaseEscape):
-    name = "stx-mssql-csv-escape"
-    bin = "stx-mssql-csv-escape"
+    name = "stx-escape-csv"
+    bin = "stx-escape csv"
 
 
 class MssqlJsonEscape(BaseEscape):
-    name = "stx-mssql-json-escape"
-    bin = "stx-mssql-json-escape"
+    name = "stx-escape-json"
+    bin = "stx-escape json"
 
 
-class RedshiftEscape(BaseEscape):
-    name = "stx-redshift-escape"
-    bin = "stx-redshift-escape"
+class MssqlTsvEscape(BaseEscape):
+    name = "stx-escape-tsv"
+    bin = "stx-escape tsv"
 
 
 class Split:
