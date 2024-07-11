@@ -57,23 +57,21 @@ You can also use the following options:
 For more information on the options, run stx --help.
 
 ```shell
-$ stx --help             
+$ stx --help
 Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
 
-  StreamXfer is a powerful tool for streaming data from SQL Server to object
-  storage for seamless transfer using UNIX pipe, supporting various general
-  data formats(CSV, TSV, JSON).
+  StreamXfer is a powerful tool for streaming data from SQL Server to local or
+  object storage(S3) for seamless transfer using UNIX pipe, supporting various
+  general data formats(CSV, TSV, JSON).
 
   Examples:
       stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /local/path/to/dir/
       stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir/
 
 Options:
-  -F, --format [CSV|TSV|JSON]  [default: JSON]
-  --compress-type [LZOP|GZIP]
-  --redshift-compatible
-  --help                       Show this message and exit.
-
+  -F, --format [CSV|TSV|JSON]     [default: JSON]
+  -C, --compress-type [LZOP|GZIP]
+  -h, --help                      Show this message and exit.
 ```
 
 ### Library Usage
