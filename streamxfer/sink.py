@@ -42,5 +42,5 @@ def uri2sink(uri):
     if uri.startswith("s3://"):
         return S3Sink(uri)
     else:
-        Path(uri).parent.mkdir(parents=True, exist_ok=True)
+        Path(uri).mkdir(parents=True, exist_ok=True)
         return LocalSink(uri)
