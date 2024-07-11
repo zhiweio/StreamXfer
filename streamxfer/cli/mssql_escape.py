@@ -14,18 +14,16 @@ def cli():
     """Convert input to supported formats (TSV, CSV, JSON) with MSSQL escaping."""
 
 
-@cli.command()
+@cli.command("tsv", short_help="escape tsv data")
 @click.argument(
     "input",
     type=click.File(mode="r", encoding="utf-8"),
     default=sys.stdin,
-    help="Input file to read from. Defaults to stdin.",
 )
 @click.argument(
     "output",
     type=click.File(mode="w", encoding="utf-8"),
     default=sys.stdout,
-    help="Output file to write to. Defaults to stdout.",
 )
 def tsv(input, output):
     for line in input:
@@ -33,18 +31,16 @@ def tsv(input, output):
         output.write(ln)
 
 
-@cli.command()
+@cli.command("json", short_help="escape json data")
 @click.argument(
     "input",
     type=click.File(mode="r", encoding="utf-8"),
     default=sys.stdin,
-    help="Input file to read from. Defaults to stdin.",
 )
 @click.argument(
     "output",
     type=click.File(mode="w", encoding="utf-8"),
     default=sys.stdout,
-    help="Output file to write to. Defaults to stdout.",
 )
 def json(input, output):
     for line in input:
@@ -52,18 +48,16 @@ def json(input, output):
         output.write(ln)
 
 
-@cli.command()
+@cli.command("csv", short_help="escape csv data")
 @click.argument(
     "input",
     type=click.File(mode="rb", encoding="utf-8"),
     default=sys.stdin.buffer,
-    help="Input file to read from. Defaults to stdin.",
 )
 @click.argument(
     "output",
     type=click.File(mode="w", encoding="utf-8"),
     default=sys.stdout,
-    help="Output file to write to. Defaults to stdout.",
 )
 def csv(input, output):
     for line in read_stream(input, newline=csv_bin_rtx):

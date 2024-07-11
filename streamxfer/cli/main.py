@@ -6,7 +6,9 @@ from streamxfer.format import supported as supported_format
 from streamxfer.format import Format
 
 
-@click.command()
+CONTEXT_SETTINGS = dict(help_option_names=['-h', '--help'])
+
+@click.command(context_settings=CONTEXT_SETTINGS)
 @click.argument("pymssql-url")
 @click.argument("table")
 @click.argument("output-path")
