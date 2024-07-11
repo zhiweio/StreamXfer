@@ -45,6 +45,7 @@ class StreamXfer:
         self.chunk_size = chunk_size
         self.sink = None
         self.columns = None
+        self.compress = None
         self._bcp = None
         self._pipe = None
         self._fifo = None
@@ -124,8 +125,8 @@ class StreamXfer:
             conn.close()
 
         upload_cmd = self.sink.cmd()
-        compress_cmd = self.compress.cmd(level=self.compress_level)
         if self.enable_compress:
+            compress_cmd = self.compress.cmd(level=self.compress_level)
             split_filter = cmd2pipe(compress_cmd, upload_cmd)
         else:
             split_filter = upload_cmd

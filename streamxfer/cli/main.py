@@ -18,6 +18,7 @@ from streamxfer.format import Format
     show_default=True,
 )
 @click.option(
+    "-C",
     "--compress-type",
     default=None,
     type=click.Choice(supported_compress, case_sensitive=False),
