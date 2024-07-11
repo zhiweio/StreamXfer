@@ -55,28 +55,26 @@ class LZOPCompress(BaseCompress):
 
 
 class BaseEscape:
-    name = None
-    bin = None
+    name = "stx-escape"
+    bin = "stx-escape"
+    subcommand: str = None
 
     @classmethod
     def cmd(cls, shell=True) -> Union[List[str], str]:
         raise_if_not_exists(cls.bin)
-        return cls.bin
+        return cls.bin + " " + cls.subcommand
 
 
 class MssqlCsvEscape(BaseEscape):
-    name = "stx-escape-csv"
-    bin = "stx-escape csv"
+    subcommand = "csv"
 
 
 class MssqlJsonEscape(BaseEscape):
-    name = "stx-escape-json"
-    bin = "stx-escape json"
+    subcommand = "json"
 
 
 class MssqlTsvEscape(BaseEscape):
-    name = "stx-escape-tsv"
-    bin = "stx-escape tsv"
+    subcommand = "csv"
 
 
 class Split:
