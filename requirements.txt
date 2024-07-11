@@ -1,4 +1,4 @@
-pymssql~=2.2.7
+pymssql~=2.3.0
 boto3~=1.26.118
 loguru~=0.7.0
 click~=8.1.3
