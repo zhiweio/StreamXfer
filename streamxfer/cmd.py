@@ -136,7 +136,7 @@ class BCP:
             direc,
             quote_this(flat_file),
             "-S",
-            engine.host,
+            engine.server,
             "-d",
             engine.database,
             "-q",  # Executes the SET QUOTED_IDENTIFIERS ON statement, needed for Azure SQL DW,
