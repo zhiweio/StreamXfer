@@ -2,7 +2,7 @@ import os
 from pathlib import Path
 
 from streamxfer.typing import *
-from streamxfer.cmd import Cat
+from streamxfer.cmd import Cat, raise_if_not_exists
 
 
 class BaseSink:
@@ -26,15 +26,18 @@ class LocalSink(BaseSink):
     bin = Cat.bin
 
     def cmd(self) -> Union[List[str], str]:
+        raise_if_not_exists(self.bin)
         _cmd = [self.bin, ">", self.uri]
         return " ".join(_cmd)
 
 
 class S3Sink(BaseSink):
-    bin = "aws s3 cp"
+    bin = "aws"
+    subcommand = "s3 cp"
 
     def cmd(self) -> Union[List[str], str]:
-        _cmd = [self.bin, "-", self.uri]
+        raise_if_not_exists(self.bin)
+        _cmd = [self.bin, self.subcommand, "-", self.uri]
         return " ".join(_cmd)
 
 
