@@ -18,6 +18,7 @@ Before installing StreamXfer, you need to install the following dependencies:
 
 * mssql-tools: [SQL Docs - bcp Utility](https://learn.microsoft.com/en-us/sql/tools/bcp-utility?view=sql-server-ver16)
 * lzop: [Download](https://www.lzop.org/)
+* awscli: [AWS CLI install and update instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions)
 
 Then, install StreamXfer from PyPI:
 
