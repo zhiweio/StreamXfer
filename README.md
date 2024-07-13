@@ -14,25 +14,32 @@ _I've migrated 10TB data from SQL Server into Amazon Redshift using this tool._
 
 ## Installation
 
+**Prerequisites**
+
 Before installing StreamXfer, you need to install the following dependencies:
 
 * mssql-tools: [SQL Docs - bcp Utility](https://learn.microsoft.com/en-us/sql/tools/bcp-utility?view=sql-server-ver16)
 * lzop: [Download](https://www.lzop.org/)
 * awscli: [AWS CLI install and update instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions)
 
-Then, install StreamXfer from PyPI:
+**Install from PyPI**
 
 ```shell
 $ python3 -m pip install streamxfer
 ```
 
-Alternatively, install from source:
+**Install from Source**
 
 ```shell
 $ git clone https://github.com/zhiweio/StreamXfer.git && cd StreamXfer/
 $ python3 setup.py install
 ```
 
+**Install from Docker**
+
+```shell
+$ docker pull zhiweio/streamxfer:latest
+```
 
 ## Usage
 
@@ -53,9 +60,9 @@ $ stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /local/path/to/di
 You can also use the following options:
 
 * `-F, --format`: The data format (CSV, TSV, or JSON).
-* `--compress-type`: The compression type (LZOP or GZIP).
+* `-C, --compress-type`: The compression type (LZOP or GZIP).
 
-For more information on the options, run stx --help.
+For more detailed options, run:
 
 ```shell
 $ stx --help
@@ -73,6 +80,15 @@ Options:
   -F, --format [CSV|TSV|JSON]     [default: JSON]
   -C, --compress-type [LZOP|GZIP]
   -h, --help                      Show this message and exit.
+```
+
+### Docker Usage
+
+To use StreamXfer in Docker container:
+
+```shell
+$ docker run --rm -v $(pwd)/data:/tmp/data zhiweio/streamxfer bash -c "stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /tmp/data/dbo_test"
+$ docker run --rm zhiweio/streamxfer bash -c "stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir"
 ```
 
 ### Library Usage
