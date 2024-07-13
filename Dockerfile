@@ -1,14 +1,22 @@
 FROM amazonlinux:latest
 
-ENV LANG en_US.UTF-8
-ENV LANGUAGE en_US:en
-ENV LC_ALL en_US.UTF-8
-
 LABEL maintainer="Wang Zhiwei <noparking188@gmail.com>"
 
+
+# Install necessary packages for locales
+RUN yum update -y && \
+    yum clean metadata && \
+    yum install -y glibc-langpack-en
+
+ENV LANG=en_US.UTF-8 \
+    LANGUAGE=en_US:en \
+    LC_ALL=en_US.UTF-8
+
+RUN locale
+
+
 # Install Python 3.9
-RUN yum -y update && yum clean metadata && \
-    yum -y install \
+RUN yum -y install \
       wget \
       tar \
       gzip \
@@ -22,7 +30,8 @@ RUN yum -y update && yum clean metadata && \
       unzip \
       lzop \
       git \
-      which
+      which \
+      zlib-devel
 
 WORKDIR /opt
 
@@ -45,7 +54,7 @@ RUN python3 -m pip install -U pip
 # Install mssql-tools
 RUN curl https://packages.microsoft.com/config/rhel/8/prod.repo > /etc/yum.repos.d/mssql-release.repo && \
     yum remove mssql-tools unixODBC-utf16 unixODBC-utf16-devel && \
-    yum install -y mssql-tools18 unixODBC-devel
+    ACCEPT_EULA=Y yum install -y mssql-tools18 unixODBC-devel
 RUN echo 'export PATH="$PATH:/opt/mssql-tools18/bin"' >> ~/.bashrc
 RUN yum clean all
 
@@ -56,8 +65,6 @@ WORKDIR /opt
 RUN yum remove awscli
 RUN curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
 RUN unzip awscliv2.zip
-
-WORKDIR /opt/aws
 
 RUN ./aws/install
 
