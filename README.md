@@ -118,6 +118,7 @@ sx.pump()
 Here are some related articles
 
 * [How to stream Microsoft SQL Server to S3 using BCP on linux](https://dstan.medium.com/streaming-microsoft-sql-server-to-s3-using-bcp-35241967d2e0)
+* [借助 Linux 管道文件加速 SQL Server 数据迁移 Redshift](https://zhiweio.notion.site/Linux-SQL-Server-Redshift-f5c2b5dcdeb646f793de494954244a8a)
 
 ## Authors
 
