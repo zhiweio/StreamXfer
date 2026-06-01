@@ -1,0 +1,134 @@
+services:
+  # ============================================================
+  # SQL Server 2022 Developer Edition
+  # ============================================================
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: streamxfer-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: "StreamXfer@2024!"
+      MSSQL_PID: "Developer"
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqlserver-data:/var/opt/mssql
+    healthcheck:
+      test: /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "StreamXfer@2024!" -No -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    networks:
+      - streamxfer
+
+  # ============================================================
+  # MinIO – S3-compatible object storage
+  # ============================================================
+  minio:
+    image: minio/minio:latest
+    container_name: streamxfer-minio
+    command: server /data --console-address ":9001"
+    environment:
+      MINIO_ROOT_USER: minioadmin
+      MINIO_ROOT_PASSWORD: minioadmin123
+    ports:
+      - "9000:9000"   # S3 API
+      - "9001:9001"   # Web Console  http://localhost:9001
+    volumes:
+      - minio-data:/data
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - streamxfer
+
+  # ============================================================
+  # MinIO bootstrap – create default test buckets
+  # ============================================================
+  minio-init:
+    image: minio/mc:latest
+    container_name: streamxfer-minio-init
+    depends_on:
+      minio:
+        condition: service_healthy
+    entrypoint: >
+      /bin/sh -c "
+      mc alias set local http://minio:9000 minioadmin minioadmin123 &&
+      mc mb --ignore-existing local/streamxfer-test &&
+      mc mb --ignore-existing local/streamxfer-output &&
+      echo 'Buckets ready: streamxfer-test  streamxfer-output'
+      "
+    networks:
+      - streamxfer
+
+  # ============================================================
+  # Data seeder – T-SQL set-based generation (~30M rows)
+  # Uses sqlcmd inside the SQL Server image; no extra build needed.
+  #
+  # Run once:
+  #   docker compose --profile seed up data-seeder
+  # Or to re-seed:
+  #   docker compose --profile seed run --rm data-seeder
+  # ============================================================
+  data-seeder:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: streamxfer-seeder
+    profiles:
+      - seed
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+    volumes:
+      - ./tests/docker/sql:/sql:ro
+    environment:
+      SA_PASSWORD: "StreamXfer@2024!"
+      SQL_SERVER_HOST: sqlserver
+    entrypoint: ["/bin/bash", "/sql/run-seeder.sh"]
+    networks:
+      - streamxfer
+
+  # ============================================================
+  # StreamXfer CLI (stx) – built from local source
+  # Uses the same Dockerfile at the repo root.
+  #
+  # Usage (opt-in via --profile app):
+  #   docker compose --profile app run --rm stx --help
+  #   docker compose --profile app run --rm stx export \
+  #     --mssql "mssql://sa:StreamXfer@2024!@sqlserver:1433/streamxfer_test" \
+  #     --table dbo.events \
+  #     --output s3://streamxfer-output/events/ \
+  #     --format parquet
+  # ============================================================
+  stx:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: streamxfer:local
+    container_name: streamxfer-stx
+    profiles:
+      - app
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      minio-init:
+        condition: service_completed_successfully
+    environment:
+      AWS_ACCESS_KEY_ID: minioadmin
+      AWS_SECRET_ACCESS_KEY: minioadmin123
+      AWS_ENDPOINT_URL: http://minio:9000
+      AWS_REGION: us-east-1
+    networks:
+      - streamxfer
+
+volumes:
+  sqlserver-data:
+  minio-data:
+
+networks:
+  streamxfer:
+    driver: bridge

@@ -1,0 +1,16 @@
+[package]
+name = "streamxfer-py"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+
+[lib]
+name = "streamxfer_rust"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3.workspace = true
+serde_json.workspace = true
+streamxfer-core = { path = "../streamxfer-core" }
+tokio.workspace = true

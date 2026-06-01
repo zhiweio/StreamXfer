@@ -1,129 +1,188 @@
 # StreamXfer
 
-StreamXfer is a powerful tool for streaming data from SQL Server to local or object storage(S3) for seamless transfer using UNIX
-pipe, supporting various general data formats(CSV, TSV, JSON).
+[![License: GPL-3.0](https://img.shields.io/badge/License-GPL--3.0-blue.svg)](https://choosealicense.com/licenses/gpl-3.0/)
 
-**Supported OS:** Linux, macOS
+**High-performance SQL Server data export tool built in Rust.**
 
-_I've migrated 10TB data from SQL Server into Amazon Redshift using this tool._
+StreamXfer streams data directly from SQL Server via the native TDS protocol and writes to local or cloud storage in Parquet, CSV, TSV, or JSON format — with concurrent execution, checkpointing, and Python bindings.
 
-## Demo
+## Features
 
-[![asciicast](https://asciinema.org/a/563200.svg)](https://asciinema.org/a/563200)
-
+- ⚡ **Native TDS Protocol** — Connects directly via [tiberius](https://github.com/steffenede/tiberius), no BCP or ODBC required
+- 📦 **Multiple Output Formats** — Parquet (default), CSV, TSV, JSON
+- 📂 **Flexible Storage Targets** — Local filesystem, Amazon S3, Google Cloud Storage, Azure Blob Storage
+- 🔄 **Checkpoint & Resume** — Resumable exports with RocksDB-backed checkpoint store
+- 🚀 **Concurrent Execution** — Table-level, partition-level, and global I/O concurrency controls
+- 🗜️ **Compression** — Snappy (default), Zstd, Gzip
+- 🛡️ **Consistency Modes** — Snapshot transactions, database snapshots, high watermark
+- 💡 **Smart Planning** — Export single tables, custom queries, entire schemas, or full databases
+- 🔍 **Glob Filters** — Include/exclude tables with glob patterns
+- 🗂️ **Path Templates** — Dynamic output paths with `{database}`, `{schema}`, `{table}` variables
+- 🐍 **Python Bindings** — Use StreamXfer from Python via PyO3
 
 ## Installation
 
-**Prerequisites**
+**Prerequisites:** Rust 1.70+ ([install](https://rustup.rs/))
 
-Before installing StreamXfer, you need to install the following dependencies:
+```bash
+# Build from source
+git clone https://github.com/zhiweio/StreamXfer.git && cd StreamXfer
+cargo build --release
 
-* mssql-tools: [SQL Docs - bcp Utility](https://learn.microsoft.com/en-us/sql/tools/bcp-utility?view=sql-server-ver16)
-* lzop: [Download](https://www.lzop.org/)
-* awscli: [AWS CLI install and update instructions](https://docs.aws.amazon.com/cli/latest/userguide/getting-started-install.html#getting-started-install-instructions)
-
-**Install from PyPI**
-
-```shell
-$ python3 -m pip install streamxfer
+# Install to ~/.cargo/bin
+cargo install --path crates/streamxfer-cli
 ```
 
-**Install from Source**
+## Quick Start
 
-```shell
-$ git clone https://github.com/zhiweio/StreamXfer.git && cd StreamXfer/
-$ python3 setup.py install
+```bash
+# Export a single table to Parquet
+stx table 'mssql://user:pass@host:1433/mydb' ./output/ dbo.orders
+
+# Export with WHERE filter
+stx table 'mssql://user:pass@host:1433/mydb' ./output/ dbo.orders \
+    --where "created_at >= '2024-01-01'"
+
+# Export entire schema to S3
+stx schema 'mssql://user:pass@host:1433/mydb' s3://bucket/raw/ --schema sales
+
+# Export custom query
+stx query 'mssql://user:pass@host:1433/mydb' ./output/ \
+    --query "SELECT * FROM orders WHERE year = 2024" \
+    --query-name orders_2024
+
+# Export full database with filters
+stx database 'mssql://user:pass@host:1433/mydb' s3://bucket/full/ \
+    --exclude-table "*.tmp_*" --exclude-table "*.bak_*"
+
+# Dry run (preview plan)
+stx --dry-run schema 'mssql://user:pass@host:1433/mydb' ./out/ --schema dbo
 ```
 
-**Install from Docker**
+## CLI Subcommands
 
-```shell
-$ docker pull zhiweio/streamxfer:latest
+| Command | Description |
+|---------|-------------|
+| `stx table` | Export a single table |
+| `stx query` | Export results of a SQL query |
+| `stx schema` | Export all tables in a schema |
+| `stx database` | Export all tables in the database |
+
+### Common Options
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `--format` | `parquet` | Output format: `parquet`, `csv`, `tsv`, `json` |
+| `-C, --compression` | `snappy` | Codec: `none`, `snappy`, `zstd`, `gzip` |
+| `--memory-limit-mb` | `512` | Memory budget (min 64 MB) |
+| `--table-concurrency` | `4` | Parallel table exports |
+| `--partition-concurrency-per-table` | `4` | Parallel partitions per table |
+| `--max-concurrency` | `16` | Global I/O concurrency cap |
+| `--checkpoint-dir` | — | Path for checkpoint state |
+| `--resume` | `false` | Resume from last checkpoint |
+| `--dry-run` | — | Preview plan without executing |
+
+## Python Usage
+
+```bash
+pip install maturin
+cd crates/streamxfer-py && maturin develop --release
 ```
-
-## Usage
-
-StreamXfer can be used as a command-line tool or as a library in Python.
-
-### Command-line Usage
-
-```shell
-$ stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
-```
-
-Here is an example command:
-
-```shell
-$ stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /local/path/to/dir/
-```
-
-You can also use the following options:
-
-* `-F, --format`: The data format (CSV, TSV, or JSON).
-* `-C, --compress-type`: The compression type (LZOP or GZIP).
-
-For more detailed options, run:
-
-```shell
-$ stx --help
-Usage: stx [OPTIONS] PYMSSQL_URL TABLE OUTPUT_PATH
-
-  StreamXfer is a powerful tool for streaming data from SQL Server to local or
-  object storage(S3) for seamless transfer using UNIX pipe, supporting various
-  general data formats(CSV, TSV, JSON).
-
-  Examples:
-      stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /local/path/to/dir/
-      stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir/
-
-Options:
-  -F, --format [CSV|TSV|JSON]     [default: JSON]
-  -C, --compress-type [LZOP|GZIP]
-  -h, --help                      Show this message and exit.
-```
-
-### Docker Usage
-
-To use StreamXfer in Docker container:
-
-```shell
-$ docker run --rm -v $(pwd)/data:/tmp/data zhiweio/streamxfer bash -c "stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' /tmp/data/dbo_test"
-$ docker run --rm zhiweio/streamxfer bash -c "stx 'mssql+pymssql:://user:pass@host:port/db' '[dbo].[test]' s3://bucket/path/to/dir"
-```
-
-### Library Usage
-
-To use StreamXfer as a library in Python, you can import the StreamXfer class, and use them to build and pump the data stream.
-
-Here is an example code snippet:
 
 ```python
-from streamxfer import StreamXfer
-from streamxfer.format import Format
-from streamxfer.compress import CompressType
+import json
+import streamxfer_rust
 
-sx = StreamXfer(
-    "mssql+pymssql:://user:pass@host:port/db",
-    format=Format.CSV,
-    compress_type=CompressType.LZOP,
-    chunk_size=1000000,
-)
-sx.build("[dbo].[test]", path="s3://bucket/path/to/dir/")
-sx.pump()
+config = {
+    "connection_url": "mssql://user:pass@host:1433/mydb",
+    "scope": {"type": "table", "table": {"schema": "dbo", "table": "orders"}, "predicate": None},
+    "target": "./output/{schema}/{table}/",
+    "format": "parquet",
+    "compression": "snappy",
+    "consistency": "snapshot_transaction",
+    "target_file_size": 268435456,
+    "batch_rows": 65536,
+    "memory_limit_mb": 512,
+    "table_concurrency": 4,
+    "partition_concurrency_per_table": 4,
+    "global_io_concurrency": 16,
+}
+
+tasks = json.loads(streamxfer_rust.plan(json.dumps(config)))
+print(f"Planned {len(tasks)} tasks")
+```
+
+## Architecture
+
+```
+SQL Server ──TDS──▶ StreamXfer Core ──Arrow──▶ Format Encoder ──▶ Storage Sink
+                         │                                            │
+                    Planner + Runtime                          Local / S3 / GCS / Azure
+                    Checkpoint Store
+```
+
+**Workspace structure:**
+
+| Crate | Description |
+|-------|-------------|
+| `streamxfer-core` | Core library: planner, runtime, source, sink, checkpoint |
+| `streamxfer-cli` | CLI binary (`stx`) |
+| `streamxfer-py` | Python bindings via PyO3 |
+
+## Documentation
+
+Full documentation: [https://zhiweio.github.io/StreamXfer/](https://zhiweio.github.io/StreamXfer/)
+
+Build docs locally:
+
+```bash
+uvx --with mkdocs-material mkdocs serve
+```
+
+## Development
+
+```bash
+cargo check --workspace      # Check compilation
+cargo test --workspace       # Run all tests
+cargo fmt --all --check      # Check formatting
+cargo clippy --workspace     # Lint
+```
+
+### Local Test Environment
+
+Docker Compose provides a ready-to-use test environment with SQL Server 2022, MinIO (S3-compatible), and a data seeder that generates ~30 million rows:
+
+```bash
+# Start SQL Server + MinIO
+docker compose up -d
+
+# Seed ~30M rows of production-realistic test data
+docker compose --profile seed up data-seeder
+
+# Run stx against local environment
+stx table 'mssql://sa:StreamXfer@2024!@localhost:1433/streamxfer_test' \
+    ./output/ dbo.orders --format parquet
 
 ```
 
-## Related
+The test dataset covers 8 tables across 3 schemas with diverse SQL types (datetime2, money, decimal, binary, uniqueidentifier, nvarchar(max) JSON, etc.).
 
-Here are some related articles
+See [full documentation](https://zhiweio.github.io/StreamXfer/development/local-testing/) for details.
 
-* [How to stream Microsoft SQL Server to S3 using BCP on linux](https://dstan.medium.com/streaming-microsoft-sql-server-to-s3-using-bcp-35241967d2e0)
-* [借助 Linux 管道文件加速 SQL Server 数据迁移 Redshift](https://zhiweio.notion.site/Linux-SQL-Server-Redshift-f5c2b5dcdeb646f793de494954244a8a)
+### Docker Build
 
-## Authors
+```bash
+# Build the stx image (multi-stage, local source)
+docker build -t streamxfer:local .
 
-- [@zhiweio](https://www.github.com/zhiweio)
+# Or via compose profile
+docker compose --profile app build stx
+```
 
 ## License
 
 [GPL-3.0](https://choosealicense.com/licenses/gpl-3.0/)
+
+## Author
+
+[@zhiweio](https://github.com/zhiweio)

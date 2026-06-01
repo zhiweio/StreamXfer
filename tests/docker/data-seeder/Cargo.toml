@@ -1,0 +1,20 @@
+[package]
+name = "data-seeder"
+version = "0.1.0"
+edition = "2021"
+publish = false
+
+[[bin]]
+name = "data-seeder"
+path = "src/main.rs"
+
+[dependencies]
+# Use tiberius 0.12.3 (latest in 0.12.x), rustls avoids OpenSSL dependency
+tiberius = { version = "0.12", default-features = false, features = ["rustls", "chrono"] }
+tokio = { version = "1", features = ["full"] }
+tokio-util = { version = "0.7", features = ["compat"] }
+fake = { version = "3", features = ["derive", "chrono", "uuid"] }
+rand = "0.8"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+anyhow = "1"

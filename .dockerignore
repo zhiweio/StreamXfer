@@ -1,0 +1,22 @@
+# Exclude large directories that are not needed for cargo build
+target/
+tests/
+.git/
+.github/
+site/
+docs/
+
+# Config / tooling not needed inside the build container
+mkdocs.yml
+docker-compose.yml
+.dockerignore
+scripts/
+
+# Markdown docs (README is intentionally kept for labels/metadata)
+docs/
+
+# Editor / OS noise
+.DS_Store
+.vscode/
+.idea/
+*.swp
