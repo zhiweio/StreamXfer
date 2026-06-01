@@ -1,0 +1,5 @@
+{
+  "legacy_cli": "stx PYMSSQL_URL TABLE OUTPUT_PATH",
+  "legacy_file_suffix_width": 8,
+  "legacy_chunk_lines": 1000000
+}
