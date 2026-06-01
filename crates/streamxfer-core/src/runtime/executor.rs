@@ -85,8 +85,9 @@ impl TaskExecutor {
         // Build Arrow schema from first row's column metadata
         let schema = build_schema_from_rows(&result_set)?;
 
-        // Convert rows to RecordBatches
         let batch_size = self.config.batch_rows;
+        let max_rows_per_file = self.config.max_rows_per_file;
+        let target_file_size = self.config.target_file_size;
         let mut all_rows_written = 0usize;
         let mut all_bytes_written = 0u64;
         let mut file_index = 0usize;
@@ -98,27 +99,79 @@ impl TaskExecutor {
         let effective_compression =
             resolve_compression(&self.config.format, &self.config.compression);
 
-        // Process rows in batches
+        // Accumulate batches into files, splitting by target_file_size (primary)
+        // or max_rows_per_file (if explicitly set)
         let mut offset = 0;
+        let mut file_batches: Vec<RecordBatch> = Vec::new();
+        let mut file_rows = 0usize;
+        let mut file_size_estimate = 0u64;
+
         while offset < result_set.len() {
             let end = (offset + batch_size).min(result_set.len());
             let chunk = &result_set[offset..end];
             let batch = rows_to_record_batch(chunk, &schema)?;
+            let batch_rows_count = batch.num_rows();
             offset = end;
 
-            let data_bytes =
+            // Estimate batch size by encoding it
+            let batch_bytes =
                 write_batch_to_format(&batch, &self.config.format, &effective_compression)?;
+            let batch_len = batch_bytes.len() as u64;
 
+            // Check if adding this batch would exceed limits
+            let would_exceed_size =
+                file_size_estimate + batch_len > target_file_size && !file_batches.is_empty();
+            let would_exceed_rows = match max_rows_per_file {
+                Some(max) => file_rows + batch_rows_count > max,
+                None => false,
+            };
+
+            if would_exceed_rows || would_exceed_size {
+                // Flush current file
+                let file_data = merge_batches_to_format(
+                    &file_batches,
+                    &self.config.format,
+                    &effective_compression,
+                )?;
+                let file_name =
+                    format_file_name(file_index, &self.config.format, &effective_compression);
+                let path = build_output_path(&target_uri, &file_name);
+                let written = file_data.len() as u64;
+                sink.put(&path.into(), file_data.into())
+                    .await
+                    .map_err(|e| StreamXferError::Storage(format!("write failed: {e}")))?;
+
+                all_rows_written += file_rows;
+                all_bytes_written += written;
+                file_index += 1;
+
+                // Reset accumulators
+                file_batches.clear();
+                file_rows = 0;
+                file_size_estimate = 0;
+            }
+
+            file_batches.push(batch);
+            file_rows += batch_rows_count;
+            file_size_estimate += batch_len;
+        }
+
+        // Flush remaining batches
+        if !file_batches.is_empty() {
+            let file_data = merge_batches_to_format(
+                &file_batches,
+                &self.config.format,
+                &effective_compression,
+            )?;
             let file_name =
                 format_file_name(file_index, &self.config.format, &effective_compression);
             let path = build_output_path(&target_uri, &file_name);
-
-            let written = data_bytes.len() as u64;
-            sink.put(&path.into(), data_bytes.into())
+            let written = file_data.len() as u64;
+            sink.put(&path.into(), file_data.into())
                 .await
                 .map_err(|e| StreamXferError::Storage(format!("write failed: {e}")))?;
 
-            all_rows_written += chunk.len();
+            all_rows_written += file_rows;
             all_bytes_written += written;
             file_index += 1;
         }
@@ -362,6 +415,20 @@ fn write_batch_to_format(
     }
 }
 
+/// Write multiple batches into a single file output.
+fn merge_batches_to_format(
+    batches: &[RecordBatch],
+    format: &OutputFormat,
+    compression: &CompressionCodec,
+) -> Result<Bytes> {
+    match format {
+        OutputFormat::Parquet => write_parquet_multi(batches, compression),
+        OutputFormat::Csv => write_csv_multi(batches, compression),
+        OutputFormat::Tsv => write_tsv_multi(batches, compression),
+        OutputFormat::Json => write_json_multi(batches, compression),
+    }
+}
+
 /// Validate format+compression compatibility and fallback if needed.
 fn resolve_compression(format: &OutputFormat, codec: &CompressionCodec) -> CompressionCodec {
     match format {
@@ -466,6 +533,82 @@ fn compress_bytes(data: &[u8], compression: &CompressionCodec) -> Result<Bytes> 
             Ok(Bytes::from(data.to_vec()))
         }
     }
+}
+
+fn write_parquet_multi(batches: &[RecordBatch], compression: &CompressionCodec) -> Result<Bytes> {
+    let comp = match compression {
+        CompressionCodec::None => Compression::UNCOMPRESSED,
+        CompressionCodec::Snappy => Compression::SNAPPY,
+        CompressionCodec::Zstd => Compression::ZSTD(Default::default()),
+        CompressionCodec::Gzip => Compression::UNCOMPRESSED,
+    };
+    let props = WriterProperties::builder().set_compression(comp).build();
+    let schema = batches[0].schema();
+    let mut buf = Vec::new();
+    let mut writer = ArrowWriter::try_new(&mut buf, schema, Some(props))
+        .map_err(|e| StreamXferError::Storage(format!("parquet writer init: {e}")))?;
+    for batch in batches {
+        writer
+            .write(batch)
+            .map_err(|e| StreamXferError::Storage(format!("parquet write: {e}")))?;
+    }
+    writer
+        .close()
+        .map_err(|e| StreamXferError::Storage(format!("parquet close: {e}")))?;
+    Ok(Bytes::from(buf))
+}
+
+fn write_csv_multi(batches: &[RecordBatch], compression: &CompressionCodec) -> Result<Bytes> {
+    write_delimited_multi(batches, b',', compression)
+}
+
+fn write_tsv_multi(batches: &[RecordBatch], compression: &CompressionCodec) -> Result<Bytes> {
+    write_delimited_multi(batches, b'\t', compression)
+}
+
+fn write_delimited_multi(
+    batches: &[RecordBatch],
+    delimiter: u8,
+    compression: &CompressionCodec,
+) -> Result<Bytes> {
+    let mut buf = Vec::new();
+    // Write first batch with header
+    if let Some((first, rest)) = batches.split_first() {
+        let mut writer = arrow::csv::WriterBuilder::new()
+            .with_header(true)
+            .with_delimiter(delimiter)
+            .build(&mut buf);
+        writer
+            .write(first)
+            .map_err(|e| StreamXferError::Storage(format!("csv write: {e}")))?;
+        drop(writer);
+        // Write remaining batches without header
+        for batch in rest {
+            let mut writer = arrow::csv::WriterBuilder::new()
+                .with_header(false)
+                .with_delimiter(delimiter)
+                .build(&mut buf);
+            writer
+                .write(batch)
+                .map_err(|e| StreamXferError::Storage(format!("csv write: {e}")))?;
+            drop(writer);
+        }
+    }
+    compress_bytes(&buf, compression)
+}
+
+fn write_json_multi(batches: &[RecordBatch], compression: &CompressionCodec) -> Result<Bytes> {
+    let mut buf = Vec::new();
+    let mut writer = arrow::json::LineDelimitedWriter::new(&mut buf);
+    for batch in batches {
+        writer
+            .write(batch)
+            .map_err(|e| StreamXferError::Storage(format!("json write: {e}")))?;
+    }
+    writer
+        .finish()
+        .map_err(|e| StreamXferError::Storage(format!("json finish: {e}")))?;
+    compress_bytes(&buf, compression)
 }
 
 async fn create_sink(uri: &StorageUri) -> Result<Arc<dyn ObjectStore>> {

@@ -198,6 +198,7 @@ fn config_scope_query_round_trip() {
         compression: CompressionCodec::Gzip,
         consistency: ConsistencyMode::None,
         target_file_size: 100 * 1024 * 1024,
+        max_rows_per_file: None,
         batch_rows: 10_000,
         memory_limit_mb: 256,
         table_concurrency: 2,

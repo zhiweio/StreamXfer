@@ -175,6 +175,7 @@ mod tests {
             compression: CompressionCodec::Snappy,
             consistency: ConsistencyMode::SnapshotTransaction,
             target_file_size: 128,
+            max_rows_per_file: None,
             batch_rows: 10,
             memory_limit_mb: 512,
             table_concurrency: 2,

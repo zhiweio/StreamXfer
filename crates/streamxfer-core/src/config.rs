@@ -160,6 +160,9 @@ pub struct ExportConfig {
     pub consistency: ConsistencyMode,
     #[serde(default = "default_target_file_size")]
     pub target_file_size: u64,
+    /// None means not explicitly set by user — file splitting uses target_file_size only.
+    #[serde(default)]
+    pub max_rows_per_file: Option<usize>,
     #[serde(default = "default_batch_rows")]
     pub batch_rows: usize,
     #[serde(default = "default_memory_limit_mb")]

@@ -36,6 +36,12 @@ struct CommonArgs {
     format: FormatArg,
     #[arg(long, short = 'C', value_enum, default_value_t = CompressionArg::Snappy)]
     compression: CompressionArg,
+    /// Target file size (e.g. 256m, 1g). Files are split when approaching this size.
+    #[arg(long, value_parser = parse_size)]
+    target_file_size: Option<u64>,
+    /// Maximum rows per output file. Conflicts with --target-file-size if both are set explicitly.
+    #[arg(long)]
+    max_rows_per_file: Option<usize>,
     #[arg(long, default_value_t = 512)]
     memory_limit_mb: usize,
     #[arg(long, default_value_t = 4)]
@@ -195,6 +201,40 @@ impl Command {
 }
 
 fn config(common: CommonArgs, scope: ExportScope) -> ExportConfig {
+    const DEFAULT_FILE_SIZE: u64 = 256 * 1024 * 1024; // 256MB
+    const MAX_FILE_SIZE: u64 = 1024 * 1024 * 1024; // 1GB
+    const WARN_FILE_SIZE: u64 = 512 * 1024 * 1024; // 512MB
+
+    let user_set_file_size = common.target_file_size.is_some();
+    let user_set_rows = common.max_rows_per_file.is_some();
+
+    // Resolve target_file_size with validation
+    let mut target_file_size = common.target_file_size.unwrap_or(DEFAULT_FILE_SIZE);
+    if target_file_size > MAX_FILE_SIZE {
+        tracing::warn!(
+            requested = target_file_size,
+            fallback = DEFAULT_FILE_SIZE,
+            "target_file_size exceeds 1GB maximum, falling back to 256MB"
+        );
+        target_file_size = DEFAULT_FILE_SIZE;
+    } else if target_file_size > WARN_FILE_SIZE {
+        tracing::warn!(
+            size_mb = target_file_size / (1024 * 1024),
+            "target_file_size > 512MB — large files may impact downstream query performance"
+        );
+    }
+
+    // Resolve max_rows_per_file: if both are explicitly set, warn and use file size only
+    let max_rows_per_file = if user_set_file_size && user_set_rows {
+        tracing::warn!(
+            "Both --target-file-size and --max-rows-per-file specified; \
+             using --target-file-size only, ignoring --max-rows-per-file"
+        );
+        None
+    } else {
+        common.max_rows_per_file
+    };
+
     ExportConfig {
         connection_url: common.connection_url,
         scope,
@@ -212,7 +252,8 @@ fn config(common: CommonArgs, scope: ExportScope) -> ExportConfig {
             CompressionArg::Gzip => CompressionCodec::Gzip,
         },
         consistency: ConsistencyMode::SnapshotTransaction,
-        target_file_size: 256 * 1024 * 1024,
+        target_file_size,
+        max_rows_per_file,
         batch_rows: 65_536,
         memory_limit_mb: common.memory_limit_mb,
         table_concurrency: common.table_concurrency,
@@ -221,4 +262,26 @@ fn config(common: CommonArgs, scope: ExportScope) -> ExportConfig {
         checkpoint_dir: common.checkpoint_dir,
         resume: common.resume,
     }
+}
+
+/// Parse human-readable size strings like "256m", "1g", "512k", "1048576"
+fn parse_size(s: &str) -> std::result::Result<u64, String> {
+    let s = s.trim().to_lowercase();
+    if s.is_empty() {
+        return Err("empty size value".to_string());
+    }
+    let (num_str, multiplier) = if s.ends_with("gb") || s.ends_with('g') {
+        let num = s.trim_end_matches("gb").trim_end_matches('g');
+        (num, 1024u64 * 1024 * 1024)
+    } else if s.ends_with("mb") || s.ends_with('m') {
+        let num = s.trim_end_matches("mb").trim_end_matches('m');
+        (num, 1024u64 * 1024)
+    } else if s.ends_with("kb") || s.ends_with('k') {
+        let num = s.trim_end_matches("kb").trim_end_matches('k');
+        (num, 1024u64)
+    } else {
+        (s.as_str(), 1u64)
+    };
+    let num: f64 = num_str.parse().map_err(|_| format!("invalid size: {s}"))?;
+    Ok((num * multiplier as f64) as u64)
 }

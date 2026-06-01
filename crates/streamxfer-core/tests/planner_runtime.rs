@@ -16,6 +16,7 @@ fn base_config(scope: ExportScope) -> ExportConfig {
         compression: CompressionCodec::Snappy,
         consistency: ConsistencyMode::SnapshotTransaction,
         target_file_size: 256 * 1024 * 1024,
+        max_rows_per_file: None,
         batch_rows: 65_536,
         memory_limit_mb: 512,
         table_concurrency: 4,
