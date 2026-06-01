@@ -32,11 +32,8 @@ jobs:
       - name: Set up Python
         run: uv python install 3.11
 
-      - name: Install dependencies
-        run: uv sync --group docs --no-dev
-
       - name: Build documentation
-        run: uv run mkdocs build --strict
+        run: uvx --python 3.11 --with mkdocs-material mkdocs build --strict
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
