@@ -18,6 +18,8 @@ All subcommands share these options:
 |--------|---------|-------------|
 | `--format` | `parquet` | Output format: `parquet`, `csv`, `tsv`, `json` |
 | `-C, --compression` | `snappy` | Compression codec: `none`, `snappy`, `zstd`, `gzip` |
+| `--target-file-size` | `256m` | Target size per output file (e.g. `128m`, `512m`, `1g`) |
+| `--max-rows-per-file` | — | Maximum rows per output file (optional) |
 | `--memory-limit-mb` | `512` | Memory budget in MB (minimum 64) |
 | `--table-concurrency` | `4` | Number of tables exported in parallel |
 | `--partition-concurrency-per-table` | `4` | Partitions per table exported in parallel |

@@ -14,7 +14,8 @@ The full configuration model includes:
 | `format` | OutputFormat | `parquet` | Output file format |
 | `compression` | CompressionCodec | `snappy` | Compression algorithm |
 | `consistency` | ConsistencyMode | `snapshot_transaction` | Read consistency guarantee |
-| `target_file_size` | u64 | `256 MB` | Target size per output file |
+| `target_file_size` | u64 | `256 MB` | Target size per output file (primary split control) |
+| `max_rows_per_file` | Option | None | Maximum rows per output file (optional) |
 | `batch_rows` | usize | `65,536` | Rows per batch in processing pipeline |
 | `memory_limit_mb` | usize | `512` | Memory budget (minimum 64 MB) |
 | `table_concurrency` | usize | `4` | Parallel table exports |
@@ -43,6 +44,66 @@ The full configuration model includes:
 | `snappy` | Fast compression, moderate ratio | **Default.** Good balance of speed and size |
 | `zstd` | High compression ratio | Minimize storage cost |
 | `gzip` | Wide compatibility | When downstream requires gzip |
+
+### Format × Compression Compatibility
+
+Not all compression codecs are supported by all formats. StreamXfer validates the combination and automatically falls back to a compatible codec with a warning:
+
+| Format | Supported Codecs | Unsupported → Fallback |
+|--------|-----------------|------------------------|
+| Parquet | `none`, `snappy`, `zstd` | `gzip` → `snappy` |
+| CSV/TSV/JSON | `none`, `gzip`, `zstd` | `snappy` → `gzip` |
+
+!!! note "Compression File Extensions"
+    Compressed text files include the compression suffix in the filename:
+
+    - `.csv.gz`, `.tsv.gz`, `.json.gz` (gzip)
+    - `.csv.zst`, `.tsv.zst`, `.json.zst` (zstd)
+    - Parquet handles compression internally (no suffix change)
+
+## File Splitting
+
+StreamXfer splits large exports into multiple output files for manageability and parallelism. The primary split control is **target file size**.
+
+### Split Behavior
+
+| Scenario | Behavior |
+|----------|----------|
+| Default (no flags) | Split when file approaches **256 MB** |
+| `--target-file-size 128m` | Split at ~128 MB per file |
+| `--max-rows-per-file 500000` | Split at 500K rows per file |
+| Both set | ⚠️ Warning emitted; uses `--target-file-size` only |
+
+### Size Constraints
+
+| Condition | Behavior |
+|-----------|----------|
+| `target_file_size` ≤ 512 MB | Normal operation |
+| `target_file_size` > 512 MB | ⚠️ Warning about potential performance impact |
+| `target_file_size` > 1 GB | ⚠️ Warning, falls back to 256 MB |
+
+### Examples
+
+```bash
+# Default: split at ~256MB
+stx table 'mssql://...' s3://bucket/out/ dbo.orders
+
+# Smaller files (~64MB each)
+stx table 'mssql://...' s3://bucket/out/ dbo.orders --target-file-size 64m
+
+# Split by row count
+stx table 'mssql://...' s3://bucket/out/ dbo.orders --max-rows-per-file 1000000
+
+# Human-readable sizes: k/m/g suffixes supported
+stx table 'mssql://...' s3://bucket/out/ dbo.orders --target-file-size 512m
+```
+
+!!! tip "Choosing File Size"
+    A good default is 128–256 MB per file. This balances:
+
+    - Downstream parallelism (more files = more parallel readers)
+    - Individual file overhead (too many small files increases metadata cost)
+    - Memory pressure (larger files require more memory to write)
 
 ## Consistency Modes
 

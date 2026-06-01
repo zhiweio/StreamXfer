@@ -13,7 +13,8 @@ StreamXfer streams data directly from SQL Server via the native TDS protocol and
 - :file_folder: **Flexible Storage Targets** — Local filesystem, Amazon S3, Google Cloud Storage, Azure Blob Storage
 - :repeat: **Checkpoint & Resume** — Resumable exports with RocksDB-backed checkpoint store
 - :rocket: **Concurrent Execution** — Table-level, partition-level, and global I/O concurrency controls
-- :compression: **Compression** — Snappy (default), Zstd, Gzip
+- :compression: **Compression** — Snappy (default), Zstd, Gzip with format-aware validation
+- :scissors: **Smart File Splitting** — Split output by target file size (default 256 MB) or row count
 - :shield: **Consistency Modes** — Snapshot transactions, database snapshots, high watermark
 - :bulb: **Smart Planning** — Export single tables, custom queries, entire schemas, or full databases
 - :mag: **Glob Filters** — Include/exclude tables with glob patterns

@@ -13,7 +13,8 @@ StreamXfer streams data directly from SQL Server via the native TDS protocol and
 - 📂 **Flexible Storage Targets** — Local filesystem, Amazon S3, Google Cloud Storage, Azure Blob Storage
 - 🔄 **Checkpoint & Resume** — Resumable exports with RocksDB-backed checkpoint store
 - 🚀 **Concurrent Execution** — Table-level, partition-level, and global I/O concurrency controls
-- 🗜️ **Compression** — Snappy (default), Zstd, Gzip
+- 🗜️ **Compression** — Snappy (default), Zstd, Gzip with format-aware validation
+- ✂️ **Smart File Splitting** — Split output by target file size (default 256 MB) or row count
 - 🛡️ **Consistency Modes** — Snapshot transactions, database snapshots, high watermark
 - 💡 **Smart Planning** — Export single tables, custom queries, entire schemas, or full databases
 - 🔍 **Glob Filters** — Include/exclude tables with glob patterns
@@ -74,6 +75,8 @@ stx --dry-run schema 'mssql://user:pass@host:1433/mydb' ./out/ --schema dbo
 |--------|---------|-------------|
 | `--format` | `parquet` | Output format: `parquet`, `csv`, `tsv`, `json` |
 | `-C, --compression` | `snappy` | Codec: `none`, `snappy`, `zstd`, `gzip` |
+| `--target-file-size` | `256m` | Target size per output file (e.g. `128m`, `1g`) |
+| `--max-rows-per-file` | — | Max rows per file (optional, conflicts with `--target-file-size`) |
 | `--memory-limit-mb` | `512` | Memory budget (min 64 MB) |
 | `--table-concurrency` | `4` | Parallel table exports |
 | `--partition-concurrency-per-table` | `4` | Parallel partitions per table |
